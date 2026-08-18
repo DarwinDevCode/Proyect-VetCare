@@ -46,6 +46,11 @@ export function PacientesPage() {
     try {
       const resultado = await buscarFichas(criterio);
       setFichas(resultado);
+      // Si el dialogo de ficha esta abierto, se refresca con los datos nuevos
+      // (por ejemplo, la edad recalculada tras editar la fecha de nacimiento).
+      setFichaSeleccionada((actual) =>
+        actual ? resultado.find((f) => f.id_paciente === actual.id_paciente) ?? null : null,
+      );
     } catch (err) {
       setError(mensajeError(err));
     } finally {

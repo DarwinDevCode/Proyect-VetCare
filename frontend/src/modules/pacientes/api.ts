@@ -50,9 +50,12 @@ export async function buscarFichas(texto: string): Promise<PacienteConFicha[]> {
   let resultados = data as unknown as PacienteConFicha[];
 
   if (texto.trim()) {
+    // "!inner" es imprescindible aqui: sin el, PostgREST no filtra las filas de
+    // paciente por el filtro del embed, solo pone el embed en null cuando no
+    // coincide -- lo que dejaba pasar pacientes con propietario: null al frontend.
     const { data: porPropietario, error: errorProp } = await supabase
       .from('paciente')
-      .select('*, propietario:id_propietario(*), especie:id_especie(*), raza:raza!paciente_id_raza_id_especie_fkey(*)')
+      .select('*, propietario:id_propietario!inner(*), especie:id_especie(*), raza:raza!paciente_id_raza_id_especie_fkey(*)')
       .eq('activo', true)
       .or(
         `identificacion.ilike.%${texto}%,nombres.ilike.%${texto}%,apellidos.ilike.%${texto}%`,
