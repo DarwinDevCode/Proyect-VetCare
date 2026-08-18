@@ -209,15 +209,56 @@ la URL exacta la imprime `supabase status`.
   fecha de nacimiento o "Edad desconocida" si no se registró (RF-010). Probado en navegador con
   las cuentas `recepcionista` (lee y escribe) y `veterinario` (solo lee, sin botones de edición
   visibles y con el `UPDATE` real rechazado por RLS al forzarlo por API).
+- **Módulo 3 — Historial Clínico (RF-016 a RF-020), completo de extremo a extremo**: registrar
+  una consulta (motivo/diagnóstico obligatorios, hallazgos/tratamiento/peso opcionales, en una
+  sola operación — RF-016), vincularla opcionalmente con la cita que la originó (RF-017; el
+  selector solo ofrece citas no canceladas que todavía no tienen consulta, así que "una cita no
+  origina más de una consulta" se cumple de forma proactiva en la UI, no solo por el `UNIQUE` de
+  la base), aplicar una vacuna dentro de una consulta o de forma independiente (RF-018 — el
+  descuento automático de inventario, RF-024, lo dispara el trigger ya existente, esta pantalla
+  nunca lo toca), solicitar un examen de laboratorio y completar su resultado después sin crear
+  un registro nuevo (RF-019, único `UPDATE` permitido sobre un registro clínico), e historial
+  único y cronológico por paciente (RF-020, sobre `v_historial_clinico`). Exclusivo de
+  Veterinario (RN-006) — a diferencia de los otros tres módulos, la página no tiene ningún
+  condicional de permisos de escritura. Por el tamaño del contenido (una lista larga y
+  heterogénea, no un registro compacto), este módulo se aparta a propósito del patrón "tabla +
+  diálogo" de los otros tres: el timeline vive embebido en la propia página, no en un modal; los
+  formularios de alta sí siguen siendo diálogos. Probado en navegador con las tres cuentas:
+  `veterinario` registra una consulta vinculada a una cita real, aplica una vacuna dentro de esa
+  consulta (confirmado el descuento automático de `producto.existencia_actual` vía `curl`),
+  solicita un examen independiente y completa su resultado (confirmado que sigue siendo una
+  sola fila, sin duplicar); `recepcionista`/`administrador` no ven `/historial` en el menú y un
+  `INSERT` forzado por API contra `consulta` es rechazado por RLS (403).
+  **Decisión deliberada, no un hueco:** RF-023 (registrar consumo de productos en una atención)
+  queda fuera de este módulo aunque ya sería técnicamente implementable (ya existe `consulta`) —
+  incluirlo aquí obligaría a este módulo a depender del código de la rama
+  `modulo-4-inventario` (`registrarMovimiento()`), rompiendo la independencia de ramas que pidió
+  el usuario. Queda como una adición pequeña y separada para cuando Módulo 3 y Módulo 4 ya estén
+  fusionados. Tampoco `cita.estado` pasa a `'atendida'` automáticamente al crear una consulta —
+  no existe ningún trigger para eso ni el Veterinario tiene permiso de `UPDATE` sobre `cita`
+  bajo ninguna circunstancia (esa política exige `recepcionista`); es coherente con el diseño
+  actual, no una omisión de este módulo.
 
 ### Parcialmente implementado
 - Nada a medio camino ahora mismo: lo que está en el repo funciona; lo que falta, no se ha
   empezado (ver Pendiente).
 
-### Pendiente
-- Módulo 2 — Agenda y Citas (RF-011 a RF-015).
-- Módulo 3 — Historial Clínico (RF-016 a RF-020).
-- Módulo 4 — Inventario y Medicamentos (RF-021 a RF-027).
+### Nota de ramas (no fusionadas a `main` todavía)
+Los Módulos 2, 3 y 4 viven cada uno en su propia rama (`modulo-2-agenda-citas`,
+`modulo-3-historial-clinico`, `modulo-4-inventario`), sin fusionar a `main` — el usuario pidió
+explícitamente no tocar `main` directamente, para poder revisar cada módulo por separado.
+Módulo 3 se ramificó desde `main` limpio (no depende de código de Módulo 2 ni de Módulo 4;
+`types/dominio.ts` de esta rama deliberadamente NO define `Cita` ni `Producto` para evitar
+definiciones duplicadas al fusionar — usa tipos locales angostos `CitaVinculable`/
+`ProductoVacuna` dentro de `modules/historial/api.ts` en su lugar). Mientras no se fusionen,
+esta sección de `CLAUDE.md` describe un estado distinto según la rama en la que se lea;
+reconciliar al momento de fusionar.
+
+### Pendiente (en esta rama; Módulos 2 y 4 ya están completos en las suyas, ver nota arriba)
+- Módulo 2 — Agenda y Citas (RF-011 a RF-015) — completo en `modulo-2-agenda-citas`.
+- Módulo 4 — Inventario y Medicamentos (RF-021, RF-022, RF-025 a RF-027) — completo en
+  `modulo-4-inventario`; RF-023 sigue pendiente en cualquier rama (ver nota de Módulo 3 arriba).
+  RF-024 ya es un trigger funcionando, sin UI propia.
 - Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
 - RI-005: impresión/exportación de factura.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
@@ -228,7 +269,22 @@ la URL exacta la imprime `supabase status`.
 ### Problemas conocidos
 - Ninguno abierto. (El bug real encontrado durante la verificación de Módulo 1 — un embed de
   PostgREST sin `!inner` que dejaba pasar `propietario: null` y rompía el render al buscar por
-  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6.)
+  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. El
+  bug real encontrado durante la verificación de Módulo 3 se describe abajo, también corregido.)
+- (Corregido) **Las fechas de vacunación/examen del timeline retrocedían un día en husos
+  horarios detrás de UTC (América).** `vacunacion.fecha_aplicacion` y
+  `examen_laboratorio.fecha_solicitud` son columnas `date`; `v_historial_clinico` las castea a
+  `timestamptz` con medianoche UTC implícita (`"2026-08-18T00:00:00+00:00"`). Al formatear esa
+  marca con `dayjs` sin más, la librería convierte a la hora local del navegador para mostrarla
+  — en UTC-5 (Ecuador), medianoche UTC del 18 se ve como las 19:00 del **17**, así que el día
+  calendario retrocedía uno. Se detectó probando en el navegador: una vacuna aplicada hoy
+  aparecía fechada ayer. Corrección en
+  `frontend/src/modules/historial/EventoHistorialItem.tsx`: para eventos que no son `consulta`
+  (que sí trae una hora real en `fecha_hora`), se toman los primeros 10 caracteres de la marca
+  (`"YYYY-MM-DD"`, sin offset) antes de pasarla a `dayjs` — así se interpreta como medianoche
+  **local**, sin ninguna conversión de huso horario. Patrón a tener presente para cualquier
+  columna `date` que se muestre a través de una vista que la castee a `timestamptz`: nunca
+  formatear esa marca directamente con la hora local si el dato original no tenía hora real.
 
 ## 10. Entorno local de desarrollo
 
