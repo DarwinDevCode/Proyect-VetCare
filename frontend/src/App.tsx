@@ -6,6 +6,7 @@ import { RutaProtegida } from './auth/RutaProtegida';
 import { AppLayout } from './layout/AppLayout';
 import { PacientesPage } from './modules/pacientes/PacientesPage';
 import { AgendaPage } from './modules/agenda/AgendaPage';
+import { InventarioPage } from './modules/inventario/InventarioPage';
 
 function PantallaCargando() {
   return (
@@ -60,6 +61,14 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['recepcionista', 'veterinario']}>
               <AgendaPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/inventario"
+          element={
+            <RutaProtegida rolesPermitidos={['veterinario', 'administrador']}>
+              <InventarioPage />
             </RutaProtegida>
           }
         />
