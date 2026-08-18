@@ -36,7 +36,7 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Historial Clínico',
     icono: MedicalInformationIcon,
     roles: ['veterinario'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/inventario',

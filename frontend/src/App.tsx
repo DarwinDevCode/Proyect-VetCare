@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { RutaProtegida } from './auth/RutaProtegida';
 import { AppLayout } from './layout/AppLayout';
 import { PacientesPage } from './modules/pacientes/PacientesPage';
+import { HistorialPage } from './modules/historial/HistorialPage';
 
 function PantallaCargando() {
   return (
@@ -51,6 +52,14 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['recepcionista', 'veterinario']}>
               <PacientesPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/historial"
+          element={
+            <RutaProtegida rolesPermitidos={['veterinario']}>
+              <HistorialPage />
             </RutaProtegida>
           }
         />
