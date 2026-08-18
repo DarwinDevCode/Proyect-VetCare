@@ -63,3 +63,40 @@ export interface PacienteConFicha extends Paciente {
   especie: Especie;
   raza: Raza | null;
 }
+
+export type TipoProducto = 'medicamento' | 'insumo' | 'vacuna';
+
+export interface Producto {
+  id_producto: number;
+  codigo: string;
+  nombre: string;
+  tipo: TipoProducto;
+  presentacion: string | null;
+  unidad_medida: string;
+  nivel_minimo: number;
+  // Mantenida siempre por fn_actualizar_existencia (trigger sobre movimiento_inventario);
+  // nunca es un campo de formulario, ni al crear ni al editar.
+  existencia_actual: number;
+  precio_unitario: number;
+  activo: boolean;
+}
+
+export type TipoMovimiento = 'ingreso' | 'ajuste' | 'consumo';
+
+export interface MovimientoInventario {
+  id_movimiento: number;
+  id_producto: number;
+  tipo_movimiento: TipoMovimiento;
+  cantidad: number;
+  // Calculada siempre por fn_actualizar_existencia; nunca se envia desde el cliente.
+  existencia_resultante: number;
+  fecha_hora: string;
+  id_usuario: string;
+  id_consulta: number | null;
+  id_vacunacion: number | null;
+  observacion: string | null;
+}
+
+export interface MovimientoConResponsable extends MovimientoInventario {
+  usuario: Pick<Usuario, 'nombres' | 'apellidos'>;
+}
