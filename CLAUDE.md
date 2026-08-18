@@ -267,22 +267,54 @@ la URL exacta la imprime `supabase status`.
   manual — no es una decisión de alcance, es una dependencia real de datos. Se completará junto
   con el Módulo 3, reutilizando `registrarMovimiento()` de `modules/inventario/api.ts` con
   `tipo_movimiento: 'consumo'`.
+- **Módulo 3 — Historial Clínico (RF-016 a RF-020), completo de extremo a extremo**: registrar
+  una consulta (motivo/diagnóstico obligatorios, hallazgos/tratamiento/peso opcionales, en una
+  sola operación — RF-016), vincularla opcionalmente con la cita que la originó (RF-017; el
+  selector solo ofrece citas no canceladas que todavía no tienen consulta, así que "una cita no
+  origina más de una consulta" se cumple de forma proactiva en la UI, no solo por el `UNIQUE` de
+  la base), aplicar una vacuna dentro de una consulta o de forma independiente (RF-018 — el
+  descuento automático de inventario, RF-024, lo dispara el trigger ya existente, esta pantalla
+  nunca lo toca), solicitar un examen de laboratorio y completar su resultado después sin crear
+  un registro nuevo (RF-019, único `UPDATE` permitido sobre un registro clínico), e historial
+  único y cronológico por paciente (RF-020, sobre `v_historial_clinico`). Exclusivo de
+  Veterinario (RN-006) — a diferencia de los otros tres módulos, la página no tiene ningún
+  condicional de permisos de escritura. Por el tamaño del contenido (una lista larga y
+  heterogénea, no un registro compacto), este módulo se aparta a propósito del patrón "tabla +
+  diálogo" de los otros tres: el timeline vive embebido en la propia página, no en un modal; los
+  formularios de alta sí siguen siendo diálogos. Probado en navegador con las tres cuentas:
+  `veterinario` registra una consulta vinculada a una cita real, aplica una vacuna dentro de esa
+  consulta (confirmado el descuento automático de `producto.existencia_actual` vía `curl`),
+  solicita un examen independiente y completa su resultado (confirmado que sigue siendo una
+  sola fila, sin duplicar); `recepcionista`/`administrador` no ven `/historial` en el menú y un
+  `INSERT` forzado por API contra `consulta` es rechazado por RLS (403).
+  **Decisión deliberada, no un hueco:** RF-023 (registrar consumo de productos en una atención)
+  queda fuera de este módulo aunque ya sería técnicamente implementable (ya existe `consulta`) —
+  incluirlo aquí obligaría a este módulo a depender del código de la rama
+  `modulo-4-inventario` (`registrarMovimiento()`), rompiendo la independencia de ramas que pidió
+  el usuario. Queda como una adición pequeña y separada para cuando Módulo 3 y Módulo 4 ya estén
+  fusionados. Tampoco `cita.estado` pasa a `'atendida'` automáticamente al crear una consulta —
+  no existe ningún trigger para eso ni el Veterinario tiene permiso de `UPDATE` sobre `cita`
+  bajo ninguna circunstancia (esa política exige `recepcionista`); es coherente con el diseño
+  actual, no una omisión de este módulo.
 
 ### Parcialmente implementado
-- Módulo 4 — Inventario y Medicamentos: todo lo implementable sin el Módulo 3 ya está completo
-  (ver detalle arriba); RF-023/RF-024 quedan pendientes de que exista `consulta`.
+- Módulo 4 — Inventario y Medicamentos: todo lo implementable ya está completo (ver detalle
+  arriba); RF-023 sigue pendiente aunque ahora ya existe `consulta` (Módulo 3) — ver "Pendiente".
 
-### Nota de ramas (no fusionadas a `main` todavía)
-Módulos 2 y 4 ya están fusionados a `main`. El Módulo 3 (Historial Clínico) sigue en su propia
-rama (`modulo-3-historial-clinico`), sin fusionar — el usuario pidió explícitamente no tocar
-`main` directamente, para poder revisar cada módulo por separado. Se ramificó desde `main`
-limpio (antes de esta fusión), sin depender de código de Módulo 2 ni de Módulo 4. Mientras no se
-fusione, esta sección de `CLAUDE.md` describe un estado distinto según la rama en la que se lea;
-reconciliar al momento de fusionar.
+### Nota sobre el historial de ramas
+Módulos 2, 3 y 4 se desarrollaron cada uno en su propia rama (`modulo-2-agenda-citas`,
+`modulo-3-historial-clinico`, `modulo-4-inventario`), fusionadas después a `main` en ese orden
+(por eso `types/dominio.ts` no tiene tipos duplicados: cada rama evitó tocar los tipos que ya
+sabía que agregaría otra). El repositorio remoto (`origin`) puede no reflejar todavía esta
+fusión — confirmar con `git log`/`git status` antes de asumir qué hay publicado.
 
 ### Pendiente
-- Módulo 3 — Historial Clínico (RF-016 a RF-020) — completo en su propia rama, ver nota de ramas.
-- Módulo 4 — RF-023/RF-024 (ver nota arriba; el resto del módulo ya está completo).
+- Módulo 4 — RF-023 (registrar consumo de productos en una atención): ya sería implementable
+  (existe `consulta` desde el Módulo 3) pero no se hizo durante el desarrollo de Módulo 3 para no
+  acoplar esa rama con el código de `modulo-4-inventario`. Queda como una adición pequeña:
+  reutilizar `registrarMovimiento()` de `modules/inventario/api.ts` con
+  `tipo_movimiento: 'consumo'` desde un punto del historial clínico. RF-024 ya es un trigger
+  funcionando, sin UI propia.
 - Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
 - RI-005: impresión/exportación de factura.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
@@ -293,8 +325,9 @@ reconciliar al momento de fusionar.
 ### Problemas conocidos
 - Ninguno abierto. (El bug real encontrado durante la verificación de Módulo 1 — un embed de
   PostgREST sin `!inner` que dejaba pasar `propietario: null` y rompía el render al buscar por
-  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. El
-  bug real encontrado durante la verificación de Módulo 2 se describe abajo, también corregido.)
+  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. Los
+  bugs reales encontrados durante la verificación de Módulos 2 y 3 se describen abajo, también
+  corregidos.)
 - (Corregido) **`useDisponibilidadCita` no volvía a consultar la agenda al cerrar y reabrir el
   diálogo de "Nueva cita" para el mismo veterinario y el mismo día.** El efecto que recarga las
   citas dependía de `[idVeterinario, fecha]`; si esos dos valores no cambiaban entre una
@@ -309,6 +342,20 @@ reconciliar al momento de fusionar.
   cualquier hook futuro de "chequeo en vivo dentro de un diálogo que se abre y cierra
   repetidamente": las dependencias de un efecto de recarga deben incluir algo que cambie en
   cada apertura, no solo los valores del formulario.
+- (Corregido) **Las fechas de vacunación/examen del timeline retrocedían un día en husos
+  horarios detrás de UTC (América).** `vacunacion.fecha_aplicacion` y
+  `examen_laboratorio.fecha_solicitud` son columnas `date`; `v_historial_clinico` las castea a
+  `timestamptz` con medianoche UTC implícita (`"2026-08-18T00:00:00+00:00"`). Al formatear esa
+  marca con `dayjs` sin más, la librería convierte a la hora local del navegador para mostrarla
+  — en UTC-5 (Ecuador), medianoche UTC del 18 se ve como las 19:00 del **17**, así que el día
+  calendario retrocedía uno. Se detectó probando en el navegador: una vacuna aplicada hoy
+  aparecía fechada ayer. Corrección en
+  `frontend/src/modules/historial/EventoHistorialItem.tsx`: para eventos que no son `consulta`
+  (que sí trae una hora real en `fecha_hora`), se toman los primeros 10 caracteres de la marca
+  (`"YYYY-MM-DD"`, sin offset) antes de pasarla a `dayjs` — así se interpreta como medianoche
+  **local**, sin ninguna conversión de huso horario. Patrón a tener presente para cualquier
+  columna `date` que se muestre a través de una vista que la castee a `timestamptz`: nunca
+  formatear esa marca directamente con la hora local si el dato original no tenía hora real.
 
 ## 10. Entorno local de desarrollo
 
