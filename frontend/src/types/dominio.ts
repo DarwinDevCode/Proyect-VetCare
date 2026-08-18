@@ -63,3 +63,32 @@ export interface PacienteConFicha extends Paciente {
   especie: Especie;
   raza: Raza | null;
 }
+
+export type EstadoCita = 'programada' | 'cancelada' | 'atendida';
+
+export interface Cita {
+  id_cita: number;
+  id_paciente: number;
+  id_veterinario: string;
+  fecha_hora_inicio: string;
+  // Materializada por trigger (fn_calcular_fin_cita) al insertar/actualizar: nunca se
+  // envia desde el cliente, siempre se lee tal cual la devuelve la base.
+  fecha_hora_fin: string;
+  duracion_minutos: number;
+  motivo: string | null;
+  estado: EstadoCita;
+  id_usuario_registro: string | null;
+  fecha_registro: string;
+}
+
+export interface PacienteParaCita {
+  id_paciente: number;
+  nombre: string;
+  sexo: Sexo;
+  propietario: Pick<Propietario, 'nombres' | 'apellidos' | 'telefono'>;
+}
+
+export interface CitaConDetalle extends Cita {
+  paciente: PacienteParaCita;
+  veterinario: Pick<Usuario, 'id_usuario' | 'nombres' | 'apellidos'>;
+}

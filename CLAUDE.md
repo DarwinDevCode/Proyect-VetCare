@@ -145,6 +145,15 @@ Eso dejaba pasar pacientes con `propietario: null` al frontend y lo hacía falla
 `propietario.nombres`. Cualquier filtro sobre un embed en este proyecto debe usar
 `!inner` (ver `buscarFichas` en `api.ts`).
 
+**`cita.fecha_hora_fin` es una columna materializada, nunca un dato que envíe el cliente:**
+`timestamptz + interval` no es `IMMUTABLE` en PostgreSQL, así que no puede usarse dentro de la
+expresión del `EXCLUDE` de solapamiento (RN-004). En su lugar, un trigger `BEFORE INSERT OR
+UPDATE` (`fn_calcular_fin_cita`) la calcula siempre a partir de `fecha_hora_inicio +
+duracion_minutos` y sobrescribe cualquier valor recibido. `frontend/src/modules/agenda/api.ts`
+nunca la incluye en un `insert`/`update`; solo la lee de vuelta para pintar el bloque en el
+grid y para calcular disponibilidad (`disponibilidad.ts`) — evita que el cliente tenga que
+recalcularla y que pueda desincronizarse de cómo la calcula la base.
+
 ## 7. Roles y permisos
 
 Matriz completa en la sección 3.8 del SRS. Implementada como Row Level Security en
@@ -209,13 +218,29 @@ la URL exacta la imprime `supabase status`.
   fecha de nacimiento o "Edad desconocida" si no se registró (RF-010). Probado en navegador con
   las cuentas `recepcionista` (lee y escribe) y `veterinario` (solo lee, sin botones de edición
   visibles y con el `UPDATE` real rechazado por RLS al forzarlo por API).
+- **Módulo 2 — Agenda y Citas (RF-011 a RF-015), completo de extremo a extremo**: vista de
+  agenda en grid (día × veterinario, navegación día a día, filtro de qué veterinarios se
+  muestran como columnas — RF-013), registrar cita desde un hueco vacío del grid (prellena
+  veterinario y hora) o desde el botón "Nueva cita" (RF-012), con verificación de
+  disponibilidad en vivo que, cuando el horario elegido no está libre, sugiere los próximos
+  huecos disponibles ese día (RF-011, `disponibilidad.ts`). Reprogramar cambia solo fecha/hora/
+  duración, no reasigna veterinario (RF-014, no lo pide ningún RF); cancelar cambia `estado`,
+  nunca borra (RF-015/RN-005). La verificación del cliente es solo retroalimentación
+  inmediata: el `EXCLUDE` real de la base (RN-004) sigue siendo la garantía ante condiciones de
+  carrera, y el mensaje ya estaba mapeado en `lib/errors.ts` (código `23P01`) desde antes de
+  empezar este módulo. Probado en navegador con las tres cuentas: `recepcionista` crea/
+  reprograma/cancela, ve el solapamiento rechazado tanto por el chequeo en vivo como por el
+  `EXCLUDE` real, y las sugerencias de huecos libres son clicables; `veterinario` ve la agenda
+  completa (todas las citas, no solo las propias, según la política RLS) pero sin ningún
+  control de escritura visible — tampoco huecos "clicables" en el grid, aunque el `INSERT`/
+  `UPDATE` forzado por API ya lo rechazaría RLS (`403` / `0` filas), para no ofrecer una
+  interacción que de todas formas fallaría.
 
 ### Parcialmente implementado
 - Nada a medio camino ahora mismo: lo que está en el repo funciona; lo que falta, no se ha
   empezado (ver Pendiente).
 
 ### Pendiente
-- Módulo 2 — Agenda y Citas (RF-011 a RF-015).
 - Módulo 3 — Historial Clínico (RF-016 a RF-020).
 - Módulo 4 — Inventario y Medicamentos (RF-021 a RF-027).
 - Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
@@ -228,7 +253,22 @@ la URL exacta la imprime `supabase status`.
 ### Problemas conocidos
 - Ninguno abierto. (El bug real encontrado durante la verificación de Módulo 1 — un embed de
   PostgREST sin `!inner` que dejaba pasar `propietario: null` y rompía el render al buscar por
-  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6.)
+  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. El
+  bug real encontrado durante la verificación de Módulo 2 se describe abajo, también corregido.)
+- (Corregido) **`useDisponibilidadCita` no volvía a consultar la agenda al cerrar y reabrir el
+  diálogo de "Nueva cita" para el mismo veterinario y el mismo día.** El efecto que recarga las
+  citas dependía de `[idVeterinario, fecha]`; si esos dos valores no cambiaban entre una
+  apertura del diálogo y la siguiente, React no volvía a ejecutar el efecto aunque el diálogo se
+  hubiera cerrado y abierto de nuevo — el chequeo de disponibilidad seguía usando los datos de
+  la primera apertura, incluso después de haber creado otra cita para ese mismo veterinario en
+  el ínterin (se detectó creando dos citas seguidas para el mismo veterinario/día: la segunda
+  verificación no veía la primera cita recién creada). Se agregó un parámetro `activo` (en
+  `true` solo mientras el diálogo está realmente abierto, o mientras se está reprogramando) al
+  arreglo de dependencias del efecto, para forzar una recarga en cada apertura sin importar si
+  veterinario/fecha repiten el mismo valor que la vez anterior. Patrón a tener presente para
+  cualquier hook futuro de "chequeo en vivo dentro de un diálogo que se abre y cierra
+  repetidamente": las dependencias de un efecto de recarga deben incluir algo que cambie en
+  cada apertura, no solo los valores del formulario.
 
 ## 10. Entorno local de desarrollo
 

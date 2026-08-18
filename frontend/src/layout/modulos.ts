@@ -29,7 +29,7 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Agenda y Citas',
     icono: EventIcon,
     roles: ['recepcionista', 'veterinario'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/historial',
