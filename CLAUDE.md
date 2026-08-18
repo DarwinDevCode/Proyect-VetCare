@@ -127,6 +127,24 @@ Vistas (no se almacenan como tablas porque son siempre derivables de datos que y
 tres tienen `security_invoker = on`: sin eso, PostgreSQL las ejecutaría con los privilegios del
 propietario de la vista y se saltarían el RLS de las tablas base.
 
+**GRANT además de RLS:** RLS por sí solo no basta. `authenticated` necesita el privilegio SQL
+base (`GRANT SELECT/INSERT/UPDATE ... TO authenticated`, sin `DELETE` en ningún lado) antes de
+que una política pueda aplicarse; sin el GRANT, PostgREST devuelve "permission denied" aunque
+la política lo permitiría. Está al principio de `..._row_level_security.sql`. Cualquier tabla
+nueva que se agregue en una migración futura necesita su propio GRANT explícito.
+
+**`paciente.id_raza` y el embed de PostgREST:** es una FK **compuesta** `(id_raza, id_especie)
+→ raza`. PostgREST no puede resolver automáticamente un embed sobre una FK compuesta a partir
+del nombre de columna; hay que indicar el nombre de la restricción explícitamente:
+`raza:raza!paciente_id_raza_id_especie_fkey(*)` (ver `frontend/src/modules/pacientes/api.ts`).
+
+**Filtros sobre un embed sin `!inner`:** si se filtra por un campo de una tabla embebida (por
+ejemplo, buscar pacientes por nombre de su propietario) sin agregar `!inner` al embed,
+PostgREST **no** filtra las filas del padre: solo pone el embed en `null` cuando no coincide.
+Eso dejaba pasar pacientes con `propietario: null` al frontend y lo hacía fallar al leer
+`propietario.nombres`. Cualquier filtro sobre un embed en este proyecto debe usar
+`!inner` (ver `buscarFichas` en `api.ts`).
+
 ## 7. Roles y permisos
 
 Matriz completa en la sección 3.8 del SRS. Implementada como Row Level Security en
@@ -177,22 +195,81 @@ la URL exacta la imprime `supabase status`.
 ## 9. Estado del proyecto
 
 ### Implementado y funcionando
-- (se actualiza a medida que se completa cada módulo)
+- **Base de datos completa**: 15 tablas, triggers, vistas, RLS, `EXCLUDE` de solapamiento de
+  citas — migradas y verificadas sin errores en el entorno local (`supabase db reset` limpio).
+- **Control de acceso (RF-001, RF-002, RF-003, RNF-002)**: login con Supabase Auth, sesión y rol
+  cargados desde `usuario`/`rol`, navegación filtrada por rol, y verificado que el rol se exige
+  también en el servidor (probado con `curl`: un Veterinario autenticado que intenta `PATCH` un
+  `paciente` recibe `[]` — 0 filas — aunque tenga el `GRANT`; el bloqueo es de RLS).
+- **Módulo 1 — Pacientes y Propietarios (RF-004 a RF-010), completo de extremo a extremo**:
+  registrar propietario nuevo o reutilizar uno existente durante el alta del paciente (RF-004,
+  RF-005), especie obligatoria / raza opcional filtrada por especie (RF-006, RN-003), buscar
+  ficha por nombre de mascota, cédula o nombre del propietario (RF-007), editar propietario y
+  paciente por separado sin perder el vínculo (RF-008, RF-009), edad calculada a partir de la
+  fecha de nacimiento o "Edad desconocida" si no se registró (RF-010). Probado en navegador con
+  las cuentas `recepcionista` (lee y escribe) y `veterinario` (solo lee, sin botones de edición
+  visibles y con el `UPDATE` real rechazado por RLS al forzarlo por API).
 
 ### Parcialmente implementado
-- Esquema de base de datos completo (15 tablas, triggers, vistas, RLS) — escrito, pendiente de
-  verificar aplicado sin errores en el entorno local.
+- Nada a medio camino ahora mismo: lo que está en el repo funciona; lo que falta, no se ha
+  empezado (ver Pendiente).
 
 ### Pendiente
-- Módulos 1 a 5 (frontend + verificación de extremo a extremo).
-- Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local).
+- Módulo 2 — Agenda y Citas (RF-011 a RF-015).
+- Módulo 3 — Historial Clínico (RF-016 a RF-020).
+- Módulo 4 — Inventario y Medicamentos (RF-021 a RF-027).
+- Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
+- RI-005: impresión/exportación de factura.
+- Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
+  Docker; ver sección 8).
 - Definir con el cliente los valores TBD del SRS: RNF-016 (tiempo de respuesta objetivo),
   RNF-018 (disponibilidad comprometida), RNF-019 (política de respaldo).
 
 ### Problemas conocidos
-- (ninguno registrado todavía)
+- Ninguno abierto. (El bug real encontrado durante la verificación de Módulo 1 — un embed de
+  PostgREST sin `!inner` que dejaba pasar `propietario: null` y rompía el render al buscar por
+  nombre del propietario sin resultados — ya está corregido y documentado en la sección 6.)
 
-## 10. Convenciones de programación
+## 10. Entorno local de desarrollo
+
+```bash
+# Backend (Supabase local vía Docker; ver seccion 8 para mas comandos)
+cd supabase && npx supabase start
+
+# Frontend
+cd frontend && cp .env.local.example .env.local   # completar con `npx supabase status`
+npm install
+npm run dev
+```
+
+Cuentas de prueba sembradas por `supabase/seed.sql` (**solo entorno local**, nunca ejecutar ese
+seed contra un proyecto con datos reales de la clínica):
+
+| Correo | Contraseña | Rol |
+|---|---|---|
+| recepcion@vetcare.local | VetCare#2026 | recepcionista |
+| veterinario@vetcare.local | VetCare#2026 | veterinario |
+| admin@vetcare.local | VetCare#2026 | administrador |
+
+## 11. Nota sobre el stack de frontend instalado
+
+Este proyecto instaló las versiones **más recientes disponibles** de React (19), MUI (9.3.1) y
+TypeScript al iniciar el desarrollo, conforme a la instrucción de usar tecnología actual salvo
+que el Excel de planificación indique una versión concreta (no la indica). Una particularidad
+detectada de MUI 9.3.1 con este `tsconfig` (`moduleResolution: "bundler"`):
+
+- **Los tipos de `Stack` y `Typography` no incluyen los props de atajo del sistema**
+  (`alignItems`, `justifyContent`, `fontWeight`, `color`, etc. pasados directamente como prop).
+  Esto no es un error nuestro ni de versión de TypeScript (se probó con TS 6.0.3 y 5.9.3, mismo
+  resultado): los tipos publicados de esa versión de MUI genuinamente no los declaran, aunque el
+  componente los sigue aceptando en tiempo de ejecución. **Convención de este proyecto:** pasar
+  esos estilos dentro de `sx={{ ... }}` en vez de como props sueltas de `Stack`/`Typography`.
+  Si en el futuro se actualiza `@mui/material` y el problema ya no aparece, no hace falta
+  revertir el patrón — `sx` siempre funciona.
+- `AutocompleteRenderInputParams` ya no expone `params.InputProps`; ahora es
+  `params.slotProps.input` (ver `PropietarioAutocomplete.tsx`).
+
+## 12. Convenciones de programación
 
 - SQL: `snake_case`, tablas en singular, `id_<tabla>` como clave primaria — igual que el
   documento de diseño, sin desviaciones de nomenclatura.
