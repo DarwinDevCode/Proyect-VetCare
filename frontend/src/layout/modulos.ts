@@ -43,7 +43,7 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Inventario y Medicamentos',
     icono: Inventory2Icon,
     roles: ['veterinario', 'administrador'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/facturacion',

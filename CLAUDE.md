@@ -235,14 +235,54 @@ la URL exacta la imprime `supabase status`.
   control de escritura visible — tampoco huecos "clicables" en el grid, aunque el `INSERT`/
   `UPDATE` forzado por API ya lo rechazaría RLS (`403` / `0` filas), para no ofrecer una
   interacción que de todas formas fallaría.
+- **Módulo 4 — Inventario y Medicamentos, parcialmente completo (RF-021, RF-022, RF-025,
+  RF-026, RF-027 — ver nota sobre RF-023/RF-024 más abajo)**: registrar producto indicando tipo
+  (medicamento/insumo/vacuna), unidad de medida, precio unitario y nivel mínimo (RF-021); no
+  pide existencia inicial, esa se establece con un movimiento de tipo ingreso (coherente con que
+  `existencia_actual` la mantiene siempre el trigger `fn_actualizar_existencia`, nunca un valor
+  de formulario). Registrar ingresos y ajustes de existencia (RF-022): el formulario de ajuste
+  nunca deja que el usuario escriba un signo — pide "Aumentar" o "Disminuir" más una cantidad
+  siempre positiva, y convierte a `cantidad` firmada antes de enviar. Catálogo con existencia
+  actual y situación frente al nivel mínimo (RF-025), banner y `Chip` de alerta cuando
+  `existencia_actual <= nivel_minimo`, que se derivan en memoria del mismo array ya cargado (no
+  de una consulta aparte a la vista `v_alerta_stock`) y desaparecen solos al reponer stock
+  (RF-026). Histórico de movimientos por producto con responsable (RF-027), embebiendo
+  `usuario:id_usuario(nombres,apellidos)`. Editar producto (incluida la reactivación/
+  desactivación, coherente con "sin borrado físico") es exclusivo de Administrador; con el
+  producto inactivo no se puede registrar movimiento. Probado en navegador con las tres cuentas:
+  `administrador` crea producto, registra ingreso y ajuste (con el mensaje de "No hay existencia
+  suficiente..." ya mapeado en `errors.ts` al forzar un ajuste mayor a lo disponible), edita y
+  desactiva; `veterinario` ve el catálogo completo y el histórico (RF-025 es de solo consulta
+  para ese rol) sin ningún control de escritura, y un `INSERT` forzado por API tanto contra
+  `producto` como contra `movimiento_inventario` con `tipo_movimiento: 'ingreso'` es rechazado
+  por RLS (403) — esta última prueba confirma además que la política de `movimiento_inventario`
+  distingue por `tipo_movimiento`, no solo por tabla: Veterinario únicamente puede insertar
+  `consumo`.
+  **RF-023 (registrar consumo de productos en una atención) y RF-024 (descuento automático por
+  vacuna, ya implementado como trigger) no tienen UI todavía**: la política RLS de
+  `movimiento_inventario` exige que un `consumo` lo inserte un Veterinario, y el `CHECK
+  chk_movimiento_origen` de la tabla exige que todo `consumo` tenga un `id_consulta` o
+  `id_vacunacion` real (RN-009). Hoy no existe ninguna `consulta` porque el Módulo 3 (Historial
+  Clínico) no está construido, así que no hay ningún id válido al que enganchar un consumo
+  manual — no es una decisión de alcance, es una dependencia real de datos. Se completará junto
+  con el Módulo 3, reutilizando `registrarMovimiento()` de `modules/inventario/api.ts` con
+  `tipo_movimiento: 'consumo'`.
 
 ### Parcialmente implementado
-- Nada a medio camino ahora mismo: lo que está en el repo funciona; lo que falta, no se ha
-  empezado (ver Pendiente).
+- Módulo 4 — Inventario y Medicamentos: todo lo implementable sin el Módulo 3 ya está completo
+  (ver detalle arriba); RF-023/RF-024 quedan pendientes de que exista `consulta`.
+
+### Nota de ramas (no fusionadas a `main` todavía)
+Módulos 2 y 4 ya están fusionados a `main`. El Módulo 3 (Historial Clínico) sigue en su propia
+rama (`modulo-3-historial-clinico`), sin fusionar — el usuario pidió explícitamente no tocar
+`main` directamente, para poder revisar cada módulo por separado. Se ramificó desde `main`
+limpio (antes de esta fusión), sin depender de código de Módulo 2 ni de Módulo 4. Mientras no se
+fusione, esta sección de `CLAUDE.md` describe un estado distinto según la rama en la que se lea;
+reconciliar al momento de fusionar.
 
 ### Pendiente
-- Módulo 3 — Historial Clínico (RF-016 a RF-020).
-- Módulo 4 — Inventario y Medicamentos (RF-021 a RF-027).
+- Módulo 3 — Historial Clínico (RF-016 a RF-020) — completo en su propia rama, ver nota de ramas.
+- Módulo 4 — RF-023/RF-024 (ver nota arriba; el resto del módulo ya está completo).
 - Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
 - RI-005: impresión/exportación de factura.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
