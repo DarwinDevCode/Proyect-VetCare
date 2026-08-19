@@ -25,6 +25,11 @@ export function mensajeError(error: unknown): string {
       return 'Tu rol no tiene permiso para realizar esta acción.';
     case '23P01':
       return 'El veterinario seleccionado ya tiene una cita en ese horario.';
+    // P0001 es el codigo de un `raise exception` sin SQLSTATE propio: en este
+    // proyecto solo lo lanzan nuestras funciones (fn_emitir_factura), y su texto ya
+    // esta redactado en espanol para el usuario, asi que se muestra tal cual.
+    case 'P0001':
+      return pgError.message ?? 'No se pudo completar la operación.';
     default:
       if (pgError.message?.startsWith('No hay existencia') || pgError.message?.includes('clasificado como vacuna')) {
         return pgError.message;

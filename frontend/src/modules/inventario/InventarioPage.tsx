@@ -1,0 +1,227 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  InputAdornment,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import type { Producto } from '../../types/dominio';
+import { listarProductos } from './api';
+import { mensajeError } from '../../lib/errors';
+import { NuevoProductoDialog } from './NuevoProductoDialog';
+import { ProductoDetalleDialog } from './ProductoDetalleDialog';
+import { useAuth } from '../../auth/AuthContext';
+
+const ETIQUETA_TIPO: Record<Producto['tipo'], string> = {
+  medicamento: 'Medicamento',
+  insumo: 'Insumo',
+  vacuna: 'Vacuna',
+};
+
+export function InventarioPage() {
+  const { sesion } = useAuth();
+  const puedeGestionar = sesion?.rol.codigo === 'administrador';
+
+  const [texto, setTexto] = useState('');
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [dialogoNuevoAbierto, setDialogoNuevoAbierto] = useState(false);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+
+  const recargar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const resultado = await listarProductos();
+      setProductos(resultado);
+      // Si el detalle de un producto esta abierto, se refresca con los datos nuevos
+      // (mismo patron que PacientesPage tras editar una ficha).
+      setProductoSeleccionado((actual) =>
+        actual ? resultado.find((p) => p.id_producto === actual.id_producto) ?? null : null,
+      );
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    recargar();
+  }, [recargar]);
+
+  // RF-025: catalogo acotado, sin ilike contra el servidor -- se filtra en memoria.
+  const productosFiltrados = useMemo(() => {
+    const t = texto.trim().toLowerCase();
+    if (!t) return productos;
+    return productos.filter(
+      (p) => p.nombre.toLowerCase().includes(t) || p.codigo.toLowerCase().includes(t),
+    );
+  }, [productos, texto]);
+
+  // RF-026: se deriva del mismo array ya cargado, no de una consulta aparte a
+  // v_alerta_stock (evita una segunda fuente de datos que podria desincronizarse).
+  const alertas = useMemo(
+    () => productos.filter((p) => p.activo && p.existencia_actual <= p.nivel_minimo),
+    [productos],
+  );
+
+  return (
+    <Box>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, mb: 3 }}
+      >
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Inventario y Medicamentos
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Consulta el catálogo y las existencias de medicamentos, insumos y vacunas.
+          </Typography>
+        </Box>
+        {puedeGestionar && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogoNuevoAbierto(true)}
+          >
+            Nuevo producto
+          </Button>
+        )}
+      </Stack>
+
+      <TextField
+        fullWidth
+        placeholder="Buscar por nombre o código…"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        sx={{ mb: 2, maxWidth: 520 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {alertas.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {alertas.length} producto{alertas.length === 1 ? '' : 's'} con existencia en o por
+          debajo del nivel mínimo.
+        </Alert>
+      )}
+
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Nombre</TableCell>
+              <TableCell>Código</TableCell>
+              <TableCell>Tipo</TableCell>
+              <TableCell>Existencia</TableCell>
+              <TableCell>Nivel mínimo</TableCell>
+              <TableCell>Precio</TableCell>
+              <TableCell>Estado</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {!cargando && productosFiltrados.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+                    <Inventory2Icon fontSize="large" />
+                    <Typography variant="body2">
+                      {texto ? 'Sin resultados para esa búsqueda.' : 'Todavía no hay productos registrados.'}
+                    </Typography>
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            )}
+            {productosFiltrados.map((producto) => {
+              const alerta = producto.activo && producto.existencia_actual <= producto.nivel_minimo;
+              return (
+                <TableRow
+                  key={producto.id_producto}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => setProductoSeleccionado(producto)}
+                >
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {producto.nombre}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{producto.codigo}</TableCell>
+                  <TableCell>
+                    <Chip label={ETIQUETA_TIPO[producto.tipo]} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <Typography
+                        variant="body2"
+                        color={alerta ? 'warning.main' : 'text.primary'}
+                        sx={{ fontWeight: alerta ? 600 : 400 }}
+                      >
+                        {producto.existencia_actual}
+                      </Typography>
+                      {alerta && <Chip label="Bajo mínimo" size="small" color="warning" />}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{producto.nivel_minimo}</TableCell>
+                  <TableCell>${producto.precio_unitario.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={producto.activo ? 'Activo' : 'Inactivo'}
+                      size="small"
+                      variant={producto.activo ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <NuevoProductoDialog
+        abierto={dialogoNuevoAbierto}
+        onCerrar={() => setDialogoNuevoAbierto(false)}
+        onCreado={recargar}
+      />
+
+      <ProductoDetalleDialog
+        producto={productoSeleccionado}
+        puedeGestionar={puedeGestionar}
+        onCerrar={() => setProductoSeleccionado(null)}
+        onActualizado={recargar}
+      />
+    </Box>
+  );
+}
