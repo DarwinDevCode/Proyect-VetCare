@@ -7,9 +7,17 @@ interface Props {
   value: Propietario | null;
   onChange: (propietario: Propietario | null) => void;
   error?: string;
+  // Configurable porque este componente tambien se usa desde Facturacion, donde no
+  // hay ningun formulario de alta de propietario debajo al que remitir al usuario.
+  textoSinOpciones?: string;
 }
 
-export function PropietarioAutocomplete({ value, onChange, error }: Props) {
+export function PropietarioAutocomplete({
+  value,
+  onChange,
+  error,
+  textoSinOpciones = 'Sin coincidencias. Puedes registrar un propietario nuevo abajo.',
+}: Props) {
   const [opciones, setOpciones] = useState<Propietario[]>([]);
   const [texto, setTexto] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -42,7 +50,7 @@ export function PropietarioAutocomplete({ value, onChange, error }: Props) {
         `${propietario.nombres} ${propietario.apellidos} — ${propietario.identificacion}`
       }
       isOptionEqualToValue={(o, v) => o.id_propietario === v.id_propietario}
-      noOptionsText="Sin coincidencias. Puedes registrar un propietario nuevo abajo."
+      noOptionsText={textoSinOpciones}
       renderInput={(params) => (
         <TextField
           {...params}
