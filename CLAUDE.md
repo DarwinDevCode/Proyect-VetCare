@@ -367,12 +367,17 @@ momento de escribir esto). En vez de eso, se creó una rama nueva, **`Desarrollo
 de ese `main` local ya fusionado, y esa sí se publicó en `origin`. Las tres ramas por módulo se
 eliminaron después (local y remoto), ya fusionadas sin pérdida.
 
-**Convención vigente de aquí en adelante:** una sola rama de trabajo continua, `Desarrollo-DA`,
-para todo el desarrollo — no una rama nueva por módulo. `main` (local y remoto) se deja sin
-tocar hasta que el usuario decida fusionar `Desarrollo-DA` explícitamente. Confirmar siempre con
-`git status`/`git branch -vv` en qué rama se está parado antes de empezar a trabajar o de hacer
-cualquier `push`, y preguntar al usuario el nombre de destino antes de subir nada — no asumir
-que es `main`.
+**`Desarrollo-DA` se fusionó a `main`** una vez completados los cinco módulos del alcance, por
+decisión explícita del usuario. La fusión se hizo con `--no-ff` aunque era un avance directo
+(`main` era ancestro de `Desarrollo-DA`, sin ninguna divergencia): un commit de fusión explícito
+deja registrado *cuándo* se integró el alcance completo, igual que los commits "Fusiona Módulo
+N" que ya existían en la historia. Con `--ff` esa información se habría perdido.
+
+**Convención vigente de aquí en adelante:** se sigue trabajando en `Desarrollo-DA`, una sola
+rama continua — no una rama nueva por módulo — y `main` solo avanza cuando el usuario pide
+explícitamente una fusión. Confirmar siempre con `git status`/`git branch -vv` en qué rama se
+está parado antes de empezar a trabajar o de hacer cualquier `push`, y preguntar al usuario el
+nombre de destino antes de subir nada — no asumir que es `main`.
 
 - **Módulo 5 — Facturación y Reportes (RF-028 a RF-032) + RI-005, completo de extremo a
   extremo**: emitir factura desde una atención registrada (los conceptos y sus precios los
