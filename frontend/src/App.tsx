@@ -5,6 +5,10 @@ import { LoginPage } from './auth/LoginPage';
 import { RutaProtegida } from './auth/RutaProtegida';
 import { AppLayout } from './layout/AppLayout';
 import { PacientesPage } from './modules/pacientes/PacientesPage';
+import { AgendaPage } from './modules/agenda/AgendaPage';
+import { InventarioPage } from './modules/inventario/InventarioPage';
+import { HistorialPage } from './modules/historial/HistorialPage';
+import { FacturacionPage } from './modules/facturacion/FacturacionPage';
 
 function PantallaCargando() {
   return (
@@ -51,6 +55,38 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['recepcionista', 'veterinario']}>
               <PacientesPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/agenda"
+          element={
+            <RutaProtegida rolesPermitidos={['recepcionista', 'veterinario']}>
+              <AgendaPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/inventario"
+          element={
+            <RutaProtegida rolesPermitidos={['veterinario', 'administrador']}>
+              <InventarioPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/historial"
+          element={
+            <RutaProtegida rolesPermitidos={['veterinario']}>
+              <HistorialPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/facturacion"
+          element={
+            <RutaProtegida rolesPermitidos={['recepcionista', 'administrador']}>
+              <FacturacionPage />
             </RutaProtegida>
           }
         />

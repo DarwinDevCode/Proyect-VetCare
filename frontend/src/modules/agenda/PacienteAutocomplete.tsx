@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Autocomplete, CircularProgress, TextField } from '@mui/material';
-import type { Propietario } from '../../types/dominio';
-import { buscarPropietarios } from './api';
+import type { PacienteParaCita } from '../../types/dominio';
+import { buscarPacientesActivos } from './api';
 
 interface Props {
-  value: Propietario | null;
-  onChange: (propietario: Propietario | null) => void;
+  value: PacienteParaCita | null;
+  onChange: (paciente: PacienteParaCita | null) => void;
   error?: string;
-  // Configurable porque este componente tambien se usa desde Facturacion, donde no
-  // hay ningun formulario de alta de propietario debajo al que remitir al usuario.
-  textoSinOpciones?: string;
 }
 
-export function PropietarioAutocomplete({
-  value,
-  onChange,
-  error,
-  textoSinOpciones = 'Sin coincidencias. Puedes registrar un propietario nuevo abajo.',
-}: Props) {
-  const [opciones, setOpciones] = useState<Propietario[]>([]);
+// RF-012: elegir un paciente ya registrado en el Modulo 1 para agendarle una cita.
+export function PacienteAutocomplete({ value, onChange, error }: Props) {
+  const [opciones, setOpciones] = useState<PacienteParaCita[]>([]);
   const [texto, setTexto] = useState('');
   const [cargando, setCargando] = useState(false);
 
@@ -26,7 +19,7 @@ export function PropietarioAutocomplete({
     let vigente = true;
     setCargando(true);
     const temporizador = setTimeout(() => {
-      buscarPropietarios(texto)
+      buscarPacientesActivos(texto)
         .then((resultado) => {
           if (vigente) setOpciones(resultado);
         })
@@ -46,15 +39,16 @@ export function PropietarioAutocomplete({
       value={value}
       onChange={(_, nuevo) => onChange(nuevo)}
       onInputChange={(_, nuevoTexto) => setTexto(nuevoTexto)}
-      getOptionLabel={(propietario) =>
-        `${propietario.nombres} ${propietario.apellidos} — ${propietario.identificacion}`
+      getOptionLabel={(paciente) =>
+        `${paciente.nombre} — ${paciente.propietario.nombres} ${paciente.propietario.apellidos}`
       }
-      isOptionEqualToValue={(o, v) => o.id_propietario === v.id_propietario}
-      noOptionsText={textoSinOpciones}
+      isOptionEqualToValue={(o, v) => o.id_paciente === v.id_paciente}
+      noOptionsText="Sin coincidencias. Busca por nombre de la mascota o del propietario."
       renderInput={(params) => (
         <TextField
           {...params}
-          label="Buscar propietario por cédula o nombre"
+          label="Paciente"
+          placeholder="Buscar por nombre de la mascota o del propietario"
           error={!!error}
           helperText={error}
           slotProps={{

@@ -29,28 +29,28 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Agenda y Citas',
     icono: EventIcon,
     roles: ['recepcionista', 'veterinario'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/historial',
     etiqueta: 'Historial Clínico',
     icono: MedicalInformationIcon,
     roles: ['veterinario'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/inventario',
     etiqueta: 'Inventario y Medicamentos',
     icono: Inventory2Icon,
     roles: ['veterinario', 'administrador'],
-    implementado: false,
+    implementado: true,
   },
   {
     ruta: '/facturacion',
     etiqueta: 'Facturación y Reportes',
     icono: ReceiptLongIcon,
     roles: ['recepcionista', 'administrador'],
-    implementado: false,
+    implementado: true,
   },
 ];
 
