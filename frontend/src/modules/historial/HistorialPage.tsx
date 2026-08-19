@@ -19,7 +19,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
 import type { EventoHistorial, PacienteConFicha } from '../../types/dominio';
-import { buscarPacientesActivos, listarHistorial } from './api';
+import { buscarPacientesActivos, listarConsumosPorConsulta, listarHistorial, type ConsumoDeConsulta } from './api';
 import { mensajeError } from '../../lib/errors';
 import { calcularEdadTexto } from './edad';
 import { EventoHistorialItem } from './EventoHistorialItem';
@@ -27,6 +27,7 @@ import { NuevaConsultaDialog } from './NuevaConsultaDialog';
 import { NuevaVacunacionDialog } from './NuevaVacunacionDialog';
 import { NuevoExamenDialog } from './NuevoExamenDialog';
 import { CompletarExamenDialog } from './CompletarExamenDialog';
+import { RegistrarConsumoDialog } from './RegistrarConsumoDialog';
 
 interface EstadoDialogoConId {
   abierto: boolean;
@@ -43,12 +44,19 @@ export function HistorialPage() {
 
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState<PacienteConFicha | null>(null);
   const [historial, setHistorial] = useState<EventoHistorial[]>([]);
+  const [consumos, setConsumos] = useState<ConsumoDeConsulta[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
 
   const [dialogoConsultaAbierto, setDialogoConsultaAbierto] = useState(false);
   const [dialogoVacunacion, setDialogoVacunacion] = useState<EstadoDialogoConId>({ abierto: false });
   const [dialogoExamen, setDialogoExamen] = useState<EstadoDialogoConId>({ abierto: false });
+  // RN-009: un consumo siempre cuelga de una consulta, por eso aqui idConsulta no es
+  // opcional como en los dialogos de vacunacion y examen.
+  const [dialogoConsumo, setDialogoConsumo] = useState<{ abierto: boolean; idConsulta: number | null }>({
+    abierto: false,
+    idConsulta: null,
+  });
   const [dialogoCompletar, setDialogoCompletar] = useState<{
     idExamen: number | null;
     fechaSolicitud: string | null;
@@ -78,7 +86,12 @@ export function HistorialPage() {
     setCargandoHistorial(true);
     setErrorHistorial(null);
     try {
-      setHistorial(await listarHistorial(pacienteSeleccionado.id_paciente));
+      const [eventos, consumosDelPaciente] = await Promise.all([
+        listarHistorial(pacienteSeleccionado.id_paciente),
+        listarConsumosPorConsulta(pacienteSeleccionado.id_paciente),
+      ]);
+      setHistorial(eventos);
+      setConsumos(consumosDelPaciente);
     } catch (err) {
       setErrorHistorial(mensajeError(err));
     } finally {
@@ -234,7 +247,13 @@ export function HistorialPage() {
           <EventoHistorialItem
             key={`${evento.tipo_evento}-${evento.id_evento}`}
             evento={evento}
+            consumos={
+              evento.tipo_evento === 'consulta'
+                ? consumos.filter((c) => c.id_consulta === evento.id_evento)
+                : []
+            }
             onAbrirVacunacion={(idConsulta) => setDialogoVacunacion({ abierto: true, idConsulta })}
+            onAbrirConsumo={(idConsulta) => setDialogoConsumo({ abierto: true, idConsulta })}
             onAbrirExamen={(idConsulta) => setDialogoExamen({ abierto: true, idConsulta })}
             onAbrirCompletarExamen={(idExamen, fechaSolicitud) =>
               setDialogoCompletar({ idExamen, fechaSolicitud, abierto: true })
@@ -261,6 +280,12 @@ export function HistorialPage() {
         idConsulta={dialogoExamen.idConsulta}
         abierto={dialogoExamen.abierto}
         onCerrar={() => setDialogoExamen({ abierto: false })}
+        onCreado={recargarHistorial}
+      />
+      <RegistrarConsumoDialog
+        idConsulta={dialogoConsumo.idConsulta}
+        abierto={dialogoConsumo.abierto}
+        onCerrar={() => setDialogoConsumo({ abierto: false, idConsulta: null })}
         onCreado={recargarHistorial}
       />
       <CompletarExamenDialog
