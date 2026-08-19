@@ -8,3 +8,37 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/*
+ * RI-005: imprimir o exportar la factura emitida para entregarla al propietario.
+ * Se resuelve con la impresion del navegador (window.print), cuyo dialogo ya ofrece
+ * "Guardar como PDF" -- eso cubre tanto "imprimir" como "exportar" sin agregar una
+ * dependencia de generacion de PDF ni un segundo formato que mantener.
+ *
+ * Al imprimir se oculta todo salvo el bloque del comprobante (o el del reporte de
+ * ingresos, RF-032), y se saca del flujo del dialogo de MUI para que ocupe la hoja
+ * completa en vez de imprimirse dentro de una ventana modal recortada. Los
+ * controles que no deben salir en papel (botones, filtros, pestanas) llevan
+ * displayPrint: 'none' en su propio sx.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #comprobante-factura,
+  #comprobante-factura *,
+  #reporte-ingresos,
+  #reporte-ingresos * {
+    visibility: visible;
+  }
+
+  #comprobante-factura,
+  #reporte-ingresos {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+  }
+}

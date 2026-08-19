@@ -8,6 +8,7 @@ import { PacientesPage } from './modules/pacientes/PacientesPage';
 import { AgendaPage } from './modules/agenda/AgendaPage';
 import { InventarioPage } from './modules/inventario/InventarioPage';
 import { HistorialPage } from './modules/historial/HistorialPage';
+import { FacturacionPage } from './modules/facturacion/FacturacionPage';
 
 function PantallaCargando() {
   return (
@@ -78,6 +79,14 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['veterinario']}>
               <HistorialPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/facturacion"
+          element={
+            <RutaProtegida rolesPermitidos={['recepcionista', 'administrador']}>
+              <FacturacionPage />
             </RutaProtegida>
           }
         />

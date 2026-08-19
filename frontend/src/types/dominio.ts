@@ -185,3 +185,75 @@ export interface EventoHistorial {
   producto_o_examen: string | null;
   id_veterinario: string;
 }
+
+export type FormaPago = 'efectivo' | 'tarjeta' | 'transferencia';
+
+export type EstadoCobro = 'pendiente' | 'parcial' | 'pagada';
+
+export interface Factura {
+  id_factura: number;
+  // Asignado siempre por fn_asignar_numero_factura (RF-029/RN-016); nunca se envia
+  // desde el cliente, igual que cita.fecha_hora_fin o existencia_resultante.
+  numero: string;
+  id_propietario: number;
+  id_consulta: number | null;
+  fecha_emision: string;
+  subtotal: number;
+  impuesto: number;
+  // Columna generada (subtotal + impuesto).
+  total: number;
+  id_usuario_emisor: string;
+}
+
+export interface DetalleFactura {
+  id_detalle: number;
+  id_factura: number;
+  numero_linea: number;
+  id_producto: number | null;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+  // Columna generada (cantidad * precio_unitario).
+  subtotal_linea: number;
+}
+
+export interface Pago {
+  id_pago: number;
+  id_factura: number;
+  fecha_pago: string;
+  monto: number;
+  forma_pago: FormaPago;
+  referencia: string | null;
+  id_usuario: string;
+}
+
+// Fila de la vista v_estado_factura (RF-031). estado_cobro y saldo_pendiente los
+// deriva la base comparando total con la suma de pagos (RN-015): nunca se calculan
+// en el cliente, para que no puedan divergir de lo que dice la base.
+export interface EstadoFactura {
+  id_factura: number;
+  numero: string;
+  id_propietario: number;
+  id_consulta: number | null;
+  fecha_emision: string;
+  id_usuario_emisor: string;
+  subtotal: number;
+  impuesto: number;
+  total: number;
+  total_pagado: number;
+  saldo_pendiente: number;
+  estado_cobro: EstadoCobro;
+}
+
+export interface FacturaListada extends EstadoFactura {
+  propietario: Pick<Propietario, 'identificacion' | 'nombres' | 'apellidos'>;
+}
+
+// Un concepto a facturar tal como lo devuelve fn_conceptos_facturables (RF-028) o
+// como lo escribe el usuario para un servicio suelto.
+export interface ConceptoFacturable {
+  id_producto: number | null;
+  descripcion: string;
+  cantidad: number;
+  precio_unitario: number;
+}

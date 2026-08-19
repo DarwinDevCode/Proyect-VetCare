@@ -374,7 +374,37 @@ tocar hasta que el usuario decida fusionar `Desarrollo-DA` explícitamente. Conf
 cualquier `push`, y preguntar al usuario el nombre de destino antes de subir nada — no asumir
 que es `main`.
 
-- **Módulo 5 — Facturación: base de datos lista, sin UI todavía.** La migración
+- **Módulo 5 — Facturación y Reportes (RF-028 a RF-032) + RI-005, completo de extremo a
+  extremo**: emitir factura desde una atención registrada (los conceptos y sus precios los
+  recupera el servidor, RF-028) o cobrando servicios sueltos a un propietario (RF-028/RN-012);
+  numeración automática (RF-029); registrar uno o varios cobros por factura, con el saldo
+  propuesto por defecto y la situación de cobro derivada por la base (RF-030/RN-015); consultar
+  las facturas filtrando por período, propietario y situación de cobro, con su detalle y saldo
+  (RF-031); reporte consolidado de ingresos por período, desglosado por forma de pago, exclusivo
+  de Administrador (RF-032); e impresión/exportación del comprobante y del reporte (RI-005). El
+  reparto de roles de la matriz 3.8 se refleja en la pantalla —Recepción emite y cobra,
+  Administración reporta, ambos consultan— pero la garantía real es del servidor:
+  `fn_emitir_factura` comprueba el rol ella misma y las políticas de `pago` solo admiten
+  Recepción. Probado en navegador con las tres cuentas: `recepcionista` emite por las dos vías,
+  cobra en dos veces (la factura pasa de "Pendiente" a "Pago parcial" y a "Pagada", y el botón
+  de cobrar desaparece al quedar en cero) y filtra por propietario; `administrador` ve las
+  facturas y el reporte (2 facturas, $17,25 en efectivo + $28,75 en transferencia = $46,00) pero
+  no el botón de emitir; `veterinario` no ve el módulo en el menú.
+  **RI-005 se resuelve con `window.print()` y una hoja `@media print`**, no con una librería de
+  PDF: el propio diálogo del navegador ya ofrece "Guardar como PDF", lo que cubre "imprimir" y
+  "exportar" sin una dependencia extra ni un segundo formato que mantener. Los controles que no
+  deben salir en papel llevan `displayPrint: 'none'`. *Verificado que la hoja de impresión llega
+  al navegador y que sus reglas e identificadores son los correctos; no se pudo renderizar una
+  vista previa de impresión real en el entorno de prueba.*
+
+  **El porcentaje de impuesto (`PORCENTAJE_IMPUESTO_POR_DEFECTO`, en
+  `modules/facturacion/formato.ts`) es un valor inicial del formulario, no una decisión
+  cerrada:** está en 15 (IVA vigente en Ecuador) y se puede cambiar en cada emisión. No se
+  escribió en la base ni en el servidor a propósito — el SRS exige registrar el impuesto
+  (RF-028) pero no fija ninguna tasa, así que sigue siendo un valor a definir con el cliente,
+  como los TBD de RNF-016/018/019.
+
+- **Módulo 5 — base de datos.** La migración
   `..._facturacion.sql` cubre lo que no puede vivir en el cliente (ver sección 6): numeración
   por secuencia (RF-029/RN-016), recuperación de conceptos de una atención sin romper RN-006
   (RF-028) y emisión transaccional (RES-07/RNF-005). Probado por API con las tres cuentas:
@@ -386,8 +416,8 @@ que es `main`.
   de servicio libre sin atención asociada, a nombre del propietario.
 
 ### Pendiente
-- Módulo 5 — UI de Facturación y Reportes (RF-028 a RF-032) sobre las funciones ya migradas.
-- RI-005: impresión/exportación de factura.
+- Definir con el cliente el porcentaje de impuesto a aplicar (hoy 15 como valor inicial del
+  formulario, ver arriba).
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
   Docker; ver sección 8).
 - Definir con el cliente los valores TBD del SRS: RNF-016 (tiempo de respuesta objetivo),
@@ -399,6 +429,40 @@ que es `main`.
   nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. Los
   bugs reales encontrados durante la verificación de Módulos 2 y 3 se describen abajo, también
   corregidos.)
+- (Corregido) **RF-031 y el RLS de `propietario` se contradecían.** RF-031 concede la consulta
+  de facturas emitidas a Recepcionista *y* Administrador, pero la política de `propietario`
+  (escrita con el Módulo 1) solo la daba a Recepcionista y Veterinario. Como el filtro por
+  propietario obliga a un embed con `!inner`, a la cuenta de Administrador el listado le salía
+  **completamente vacío** — no "sin nombre": vacío. Se detectó probando la pantalla con esa
+  cuenta. Corrección en `..._propietario_facturado_para_administrador.sql`: una política
+  adicional que le concede exactamente lo que RF-031 necesita —los propietarios que tienen al
+  menos una factura emitida— y nada más. Verificado que un propietario registrado sin facturas
+  le sigue siendo invisible, y que `paciente` sigue devolviéndole `[]`. Patrón a tener presente:
+  un requisito de un módulo puede necesitar leer una tabla de otro módulo; ampliar el acceso con
+  una política acotada por la condición del requisito es preferible tanto a abrir la tabla
+  entera como a duplicar los datos.
+- (Corregido) **La vía de "Cobrar servicios" nunca preguntaba a nombre de quién facturar.**
+  Cuando la factura sale de una atención, `fn_emitir_factura` deriva el propietario de ella
+  (RN-012) y el formulario no tiene por qué pedirlo; para servicios sueltos no hay atención de
+  la que derivarlo, pero el diálogo enviaba `idPropietario: null` igualmente, así que la emisión
+  siempre fallaba. Se agregó un selector de propietario a esa vía, reutilizando
+  `PropietarioAutocomplete` del Módulo 1 (con el texto de "sin coincidencias" ahora configurable,
+  porque aquí no hay ningún formulario de alta debajo al que remitir al usuario).
+- (Corregido) **`src/index.css` no estaba importado en ninguna parte.** Existía desde el
+  andamiaje inicial de Vite pero nunca llegaba al navegador; no se notaba porque `CssBaseline`
+  de MUI ya cubría el reset que contenía. Al agregarle la hoja `@media print` de RI-005, esa
+  hoja resultó igual de invisible: el botón de imprimir habría sacado la pantalla entera en vez
+  del comprobante. Se detectó inspeccionando las reglas `@media print` realmente cargadas en el
+  documento, no confiando en que el archivo existiera. Corregido con un `import './index.css'`
+  en `main.tsx`.
+- (Corregido) **Los mensajes de error de nuestras propias funciones SQL no llegaban al usuario.**
+  `fn_emitir_factura` lanza `raise exception` con mensajes ya redactados en español ("Debe
+  indicarse el propietario o la atención a facturar"), pero PostgreSQL les asigna el código
+  genérico `P0001` y `lib/errors.ts` no lo contemplaba: caían en el `default` y se mostraba
+  "No se pudo completar la operación. Verifica los datos e intenta nuevamente" — inútil para
+  saber qué corregir, en contra de RNF-014. Se agregó el caso `P0001`, que muestra el mensaje
+  tal cual. Cualquier función nueva que lance `raise exception` debe escribir su mensaje pensando
+  en que el usuario lo va a leer literalmente.
 - (Corregido) **`useDisponibilidadCita` no volvía a consultar la agenda al cerrar y reabrir el
   diálogo de "Nueva cita" para el mismo veterinario y el mismo día.** El efecto que recarga las
   citas dependía de `[idVeterinario, fecha]`; si esos dos valores no cambiaban entre una

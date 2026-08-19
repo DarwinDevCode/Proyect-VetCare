@@ -50,7 +50,7 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Facturación y Reportes',
     icono: ReceiptLongIcon,
     roles: ['recepcionista', 'administrador'],
-    implementado: false,
+    implementado: true,
   },
 ];
 
