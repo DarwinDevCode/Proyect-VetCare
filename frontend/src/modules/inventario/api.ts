@@ -47,12 +47,15 @@ export async function listarMovimientos(idProducto: number): Promise<MovimientoC
   return data as unknown as MovimientoConResponsable[];
 }
 
-// RF-022: ingreso/ajuste, exclusivo de Administrador (la RLS ya lo exige). RF-023
-// (consumo) se agregara con el Modulo 3, reutilizando esta misma funcion con
-// tipo_movimiento: 'consumo' e id_consulta/id_vacunacion -- ver CLAUDE.md. Nunca se
-// envia existencia_resultante: la calcula fn_actualizar_existencia.
+// RF-022 (ingreso/ajuste, exclusivo de Administrador) y RF-023 (consumo, exclusivo de
+// Veterinario): una sola funcion, porque la RLS ya distingue por tipo_movimiento y no
+// hace falta un segundo camino en el cliente. id_consulta/id_vacunacion son opcionales
+// porque chk_movimiento_origen solo los exige --y solo uno de los dos-- cuando el
+// movimiento es un consumo (RN-009). Nunca se envia existencia_resultante: la calcula
+// fn_actualizar_existencia.
 export async function registrarMovimiento(
-  datos: Pick<MovimientoInventario, 'id_producto' | 'tipo_movimiento' | 'cantidad' | 'observacion'>,
+  datos: Pick<MovimientoInventario, 'id_producto' | 'tipo_movimiento' | 'cantidad' | 'observacion'> &
+    Partial<Pick<MovimientoInventario, 'id_consulta' | 'id_vacunacion'>>,
 ): Promise<MovimientoInventario> {
   const { data, error } = await supabase.from('movimiento_inventario').insert(datos).select().single();
   if (error) throw error;

@@ -235,8 +235,8 @@ la URL exacta la imprime `supabase status`.
   control de escritura visible — tampoco huecos "clicables" en el grid, aunque el `INSERT`/
   `UPDATE` forzado por API ya lo rechazaría RLS (`403` / `0` filas), para no ofrecer una
   interacción que de todas formas fallaría.
-- **Módulo 4 — Inventario y Medicamentos, parcialmente completo (RF-021, RF-022, RF-025,
-  RF-026, RF-027 — ver nota sobre RF-023/RF-024 más abajo)**: registrar producto indicando tipo
+- **Módulo 4 — Inventario y Medicamentos (RF-021 a RF-027), completo de extremo a extremo**:
+  registrar producto indicando tipo
   (medicamento/insumo/vacuna), unidad de medida, precio unitario y nivel mínimo (RF-021); no
   pide existencia inicial, esa se establece con un movimiento de tipo ingreso (coherente con que
   `existencia_actual` la mantiene siempre el trigger `fn_actualizar_existencia`, nunca un valor
@@ -258,15 +258,33 @@ la URL exacta la imprime `supabase status`.
   por RLS (403) — esta última prueba confirma además que la política de `movimiento_inventario`
   distingue por `tipo_movimiento`, no solo por tabla: Veterinario únicamente puede insertar
   `consumo`.
-  **RF-023 (registrar consumo de productos en una atención) y RF-024 (descuento automático por
-  vacuna, ya implementado como trigger) no tienen UI todavía**: la política RLS de
-  `movimiento_inventario` exige que un `consumo` lo inserte un Veterinario, y el `CHECK
-  chk_movimiento_origen` de la tabla exige que todo `consumo` tenga un `id_consulta` o
-  `id_vacunacion` real (RN-009). Hoy no existe ninguna `consulta` porque el Módulo 3 (Historial
-  Clínico) no está construido, así que no hay ningún id válido al que enganchar un consumo
-  manual — no es una decisión de alcance, es una dependencia real de datos. Se completará junto
-  con el Módulo 3, reutilizando `registrarMovimiento()` de `modules/inventario/api.ts` con
-  `tipo_movimiento: 'consumo'`.
+  **RF-023 (registrar consumo de productos en una atención)**: implementado ya fusionados los
+  Módulos 3 y 4, que era la dependencia real que lo bloqueaba (todo `consumo` necesita un
+  `id_consulta` o `id_vacunacion` real por el `CHECK chk_movimiento_origen`, RN-009, y no
+  existía ninguna `consulta` hasta construir el Módulo 3). Vive en el Historial Clínico, no en
+  la pantalla de Inventario, porque su rol es Veterinario y su origen obligatorio es una
+  consulta: `RegistrarConsumoDialog.tsx` se abre solo desde una entrada de consulta del
+  timeline, y reutiliza `registrarMovimiento()` de `modules/inventario/api.ts` con
+  `tipo_movimiento: 'consumo'` (misma función que ingreso/ajuste — la RLS ya distingue por
+  `tipo_movimiento`, no hacía falta un segundo camino en el cliente). Igual que el formulario de
+  ajuste, el usuario nunca escribe un signo: se pide cantidad positiva y se envía negativa,
+  porque `chk_movimiento_signo` exige `cantidad < 0` para un consumo. Los consumos ya
+  registrados se listan dentro de su entrada de consulta ("Productos utilizados"), en positivo.
+  **RF-024 (descuento automático por vacuna) sigue sin UI propia a propósito: es un trigger.**
+  **Decisión propia, no una omisión:** el selector de productos del diálogo de consumo excluye
+  los de tipo `vacuna` (`listarProductosConsumibles()` solo ofrece `medicamento` e `insumo`).
+  RN-008 dice que aplicar una vacuna consume *siempre* una dosis, y ese descuento ya lo hace
+  `fn_vacunacion_descuenta_inventario`; ofrecer las vacunas también aquí permitiría descontar
+  dos veces la misma dosis —una por la vacunación, otra a mano— sin que ninguna restricción de
+  la base pudiera detectarlo, porque **ambos movimientos son legítimos por separado**. La única
+  vía para una vacuna es registrarla como vacunación. Por la misma razón,
+  `listarConsumosPorConsulta()` filtra `id_consulta not is null`: el movimiento que crea el
+  trigger de vacunación solo lleva `id_vacunacion`, así que queda fuera de "Productos
+  utilizados" y se ve únicamente como su propia entrada de vacunación en el timeline (verificado
+  en navegador: una vacuna aplicada dentro de la misma consulta aparece una sola vez).
+  Verificado también por API que RLS y RN-009 se sostienen en el servidor: un Recepcionista que
+  fuerza un `consumo` recibe `403` (`42501`), y un Veterinario que fuerza un `consumo` sin
+  `id_consulta` ni `id_vacunacion` recibe `400` (`23514`, `chk_movimiento_origen`).
 - **Módulo 3 — Historial Clínico (RF-016 a RF-020), completo de extremo a extremo**: registrar
   una consulta (motivo/diagnóstico obligatorios, hallazgos/tratamiento/peso opcionales, en una
   sola operación — RF-016), vincularla opcionalmente con la cita que la originó (RF-017; el
@@ -287,19 +305,11 @@ la URL exacta la imprime `supabase status`.
   solicita un examen independiente y completa su resultado (confirmado que sigue siendo una
   sola fila, sin duplicar); `recepcionista`/`administrador` no ven `/historial` en el menú y un
   `INSERT` forzado por API contra `consulta` es rechazado por RLS (403).
-  **Decisión deliberada, no un hueco:** RF-023 (registrar consumo de productos en una atención)
-  queda fuera de este módulo aunque ya sería técnicamente implementable (ya existe `consulta`) —
-  incluirlo aquí obligaría a este módulo a depender del código de la rama
-  `modulo-4-inventario` (`registrarMovimiento()`), rompiendo la independencia de ramas que pidió
-  el usuario. Queda como una adición pequeña y separada para cuando Módulo 3 y Módulo 4 ya estén
-  fusionados. Tampoco `cita.estado` pasa a `'atendida'` automáticamente al crear una consulta —
+  RF-023 se agregó después a esta misma página (ver Módulo 4). Tampoco `cita.estado` pasa a
+  `'atendida'` automáticamente al crear una consulta —
   no existe ningún trigger para eso ni el Veterinario tiene permiso de `UPDATE` sobre `cita`
   bajo ninguna circunstancia (esa política exige `recepcionista`); es coherente con el diseño
   actual, no una omisión de este módulo.
-
-### Parcialmente implementado
-- Módulo 4 — Inventario y Medicamentos: todo lo implementable ya está completo (ver detalle
-  arriba); RF-023 sigue pendiente aunque ahora ya existe `consulta` (Módulo 3) — ver "Pendiente".
 
 ### Flujo de ramas de este proyecto
 Módulos 2, 3 y 4 se desarrollaron originalmente cada uno en su propia rama
@@ -319,12 +329,6 @@ cualquier `push`, y preguntar al usuario el nombre de destino antes de subir nad
 que es `main`.
 
 ### Pendiente
-- Módulo 4 — RF-023 (registrar consumo de productos en una atención): ya sería implementable
-  (existe `consulta` desde el Módulo 3) pero no se hizo durante el desarrollo de Módulo 3 para no
-  acoplar esa rama con el código de `modulo-4-inventario`. Queda como una adición pequeña:
-  reutilizar `registrarMovimiento()` de `modules/inventario/api.ts` con
-  `tipo_movimiento: 'consumo'` desde un punto del historial clínico. RF-024 ya es un trigger
-  funcionando, sin UI propia.
 - Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
 - RI-005: impresión/exportación de factura.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía

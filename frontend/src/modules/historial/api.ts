@@ -24,6 +24,25 @@ export interface ProductoVacuna {
   nombre: string;
 }
 
+// RF-023: lo que se puede consumir en una atencion, con existencia y unidad para que
+// el veterinario vea cuanto queda antes de descontar.
+export interface ProductoConsumible {
+  id_producto: number;
+  nombre: string;
+  unidad_medida: string;
+  existencia_actual: number;
+}
+
+// Un consumo ya registrado contra una consulta (RF-023/RF-027), para mostrarlo
+// dentro de la entrada de esa consulta en el timeline.
+export interface ConsumoDeConsulta {
+  id_movimiento: number;
+  id_consulta: number;
+  cantidad: number;
+  observacion: string | null;
+  producto: Pick<ProductoConsumible, 'nombre' | 'unidad_medida'>;
+}
+
 // RF-007 (Modulo 1) reutilizado aqui con el mismo patron que buscarFichas: doble
 // consulta + merge, porque "!inner" es obligatorio para filtrar por datos del
 // propietario embebido (ver CLAUDE.md seccion 6).
@@ -152,4 +171,40 @@ export async function completarExamen(
     .single();
   if (error) throw error;
   return data;
+}
+
+// RF-023: productos que el veterinario puede descontar manualmente en una atencion.
+// Se excluyen los de tipo 'vacuna' a proposito: RN-008 dice que aplicar una vacuna
+// consume SIEMPRE una dosis, y ese descuento ya lo hace automaticamente el trigger
+// fn_vacunacion_descuenta_inventario (RF-024). Ofrecerlas tambien aqui permitiria
+// descontar dos veces la misma dosis -- una para la vacunacion y otra a mano-- sin
+// que ninguna restriccion de la base pudiera detectarlo, porque ambos movimientos
+// son legitimos por separado. La via correcta para una vacuna es registrarla como
+// vacunacion.
+export async function listarProductosConsumibles(): Promise<ProductoConsumible[]> {
+  const { data, error } = await supabase
+    .from('producto')
+    .select('id_producto, nombre, unidad_medida, existencia_actual')
+    .in('tipo', ['medicamento', 'insumo'])
+    .eq('activo', true)
+    .order('nombre');
+  if (error) throw error;
+  return data;
+}
+
+// RF-023: consumos manuales de todas las consultas del paciente, en una sola consulta
+// en vez de una por entrada del timeline. El filtro va sobre la tabla embebida, asi
+// que necesita "!inner" (ver CLAUDE.md seccion 6). "id_consulta not is null" deja
+// fuera los consumos automaticos por vacunacion (RF-024): esos solo llevan
+// id_vacunacion y ya se ven como su propia entrada de vacunacion en el historial.
+export async function listarConsumosPorConsulta(idPaciente: number): Promise<ConsumoDeConsulta[]> {
+  const { data, error } = await supabase
+    .from('movimiento_inventario')
+    .select('id_movimiento, id_consulta, cantidad, observacion, producto:id_producto(nombre, unidad_medida), consulta:id_consulta!inner(id_paciente)')
+    .eq('consulta.id_paciente', idPaciente)
+    .eq('tipo_movimiento', 'consumo')
+    .not('id_consulta', 'is', null)
+    .order('fecha_hora');
+  if (error) throw error;
+  return data as unknown as ConsumoDeConsulta[];
 }
