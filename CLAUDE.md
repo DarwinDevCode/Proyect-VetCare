@@ -301,12 +301,22 @@ la URL exacta la imprime `supabase status`.
 - Módulo 4 — Inventario y Medicamentos: todo lo implementable ya está completo (ver detalle
   arriba); RF-023 sigue pendiente aunque ahora ya existe `consulta` (Módulo 3) — ver "Pendiente".
 
-### Nota sobre el historial de ramas
-Módulos 2, 3 y 4 se desarrollaron cada uno en su propia rama (`modulo-2-agenda-citas`,
-`modulo-3-historial-clinico`, `modulo-4-inventario`), fusionadas después a `main` en ese orden
-(por eso `types/dominio.ts` no tiene tipos duplicados: cada rama evitó tocar los tipos que ya
-sabía que agregaría otra). El repositorio remoto (`origin`) puede no reflejar todavía esta
-fusión — confirmar con `git log`/`git status` antes de asumir qué hay publicado.
+### Flujo de ramas de este proyecto
+Módulos 2, 3 y 4 se desarrollaron originalmente cada uno en su propia rama
+(`modulo-2-agenda-citas`, `modulo-3-historial-clinico`, `modulo-4-inventario`), fusionadas
+después a un `main` local en ese orden (por eso `types/dominio.ts` no tiene tipos duplicados:
+cada rama evitó tocar los tipos que ya sabía que agregaría otra). Ese `main` fusionado **nunca
+se subió a `origin/main`** — sigue exactamente donde estaba antes de empezar (`737207a` al
+momento de escribir esto). En vez de eso, se creó una rama nueva, **`Desarrollo-DA`**, a partir
+de ese `main` local ya fusionado, y esa sí se publicó en `origin`. Las tres ramas por módulo se
+eliminaron después (local y remoto), ya fusionadas sin pérdida.
+
+**Convención vigente de aquí en adelante:** una sola rama de trabajo continua, `Desarrollo-DA`,
+para todo el desarrollo — no una rama nueva por módulo. `main` (local y remoto) se deja sin
+tocar hasta que el usuario decida fusionar `Desarrollo-DA` explícitamente. Confirmar siempre con
+`git status`/`git branch -vv` en qué rama se está parado antes de empezar a trabajar o de hacer
+cualquier `push`, y preguntar al usuario el nombre de destino antes de subir nada — no asumir
+que es `main`.
 
 ### Pendiente
 - Módulo 4 — RF-023 (registrar consumo de productos en una atención): ya sería implementable
