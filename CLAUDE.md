@@ -109,6 +109,7 @@ triggers (todas en `supabase/migrations/..._business_rules.sql`):
 | `fn_vacunacion_descuenta_inventario` | RF-024/RN-008: aplicar una vacuna genera automáticamente su movimiento de consumo, en la misma transacción. |
 | `fn_actualizar_subtotal_factura` | RNF-007: `factura.subtotal` sigue siempre a sus líneas; `factura.total` es una columna generada (`subtotal + impuesto`), no depende de un trigger para mantenerse consistente. |
 | `EXCLUDE` en `cita` | RN-004/RNF-008: un veterinario no puede tener dos citas no canceladas que se solapen (constraint declarativo con `btree_gist`, no un chequeo en la aplicación). |
+| `fn_asignar_numero_factura` | RF-029/RN-016: numera cada factura desde una secuencia (`F-00000001`), sobrescribiendo siempre lo que mande el cliente. |
 
 **Decisión propia (no está en el documento de diseño):** el documento describe `factura.total`
 como columna mantenida por trigger; se implementó como columna **generada**
@@ -132,6 +133,51 @@ base (`GRANT SELECT/INSERT/UPDATE ... TO authenticated`, sin `DELETE` en ningún
 que una política pueda aplicarse; sin el GRANT, PostgREST devuelve "permission denied" aunque
 la política lo permitiría. Está al principio de `..._row_level_security.sql`. Cualquier tabla
 nueva que se agregue en una migración futura necesita su propio GRANT explícito.
+
+**Facturación: por qué hay funciones RPC y no solo tablas** (`..._facturacion.sql`). Tres cosas
+que las migraciones anteriores no podían resolver:
+
+- **`fn_emitir_factura(...)` — atomicidad.** PostgREST no ofrece transacciones que abarquen
+  varias peticiones, y emitir una factura son N inserciones (cabecera + líneas) que RES-07/
+  RNF-005 exigen que se completen todas o ninguna. Hacerlo desde la SPA dejaría cabeceras sin
+  líneas ante cualquier fallo a mitad de camino. Verificado: una línea inválida no deja
+  cabecera huérfana. La función es `SECURITY DEFINER`, así que **comprueba el rol ella misma**
+  (`fn_rol_actual() = 'recepcionista'`) — sin eso, saltarse RLS significaría que cualquier
+  usuario autenticado podría facturar.
+- **`fn_conceptos_facturables(id_consulta)` — RF-028 choca de frente con RN-006.** Quien factura
+  es el Recepcionista, pero RN-006 le niega toda lectura sobre `consulta`, `vacunacion` y
+  `movimiento_inventario`: el rol que emite la factura literalmente no puede ver qué se consumió
+  en la atención que va a cobrar. Esta función `SECURITY DEFINER` cruza ese límite de forma
+  acotada — devuelve **solo producto, cantidad y precio**, nunca motivo, diagnóstico, hallazgos
+  ni tratamiento. Verificado que RN-006 sigue intacto por lo demás: un `SELECT` directo de
+  Recepción sobre `consulta` sigue devolviendo `[]`. Recoge tanto los consumos manuales
+  (RF-023, con `id_consulta`) como los automáticos por vacuna (RF-024, que solo llevan
+  `id_vacunacion` y se enlazan a la consulta a través de `vacunacion.id_consulta`).
+- **`seq_factura_numero` — RN-016 pide "no reutilizable", no "sin huecos".** Se numera con una
+  secuencia y no con un `max(numero) + 1` porque `nextval` no se revierte cuando la transacción
+  falla: eso es justamente lo que hace que un número no se reutilice, y además evita la
+  condición de carrera entre dos recepcionistas facturando a la vez. **Consecuencia esperada,
+  no un bug: la numeración salta huecos** (un intento fallido consume su número). Si el cliente
+  exigiera una serie sin huecos, habría que renegociar RN-016 — no es un detalle de
+  implementación que se pueda "arreglar" sin perder la garantía.
+
+**RN-014 se resuelve en el servidor, no en el formulario:** cuando una línea trae `id_producto`,
+`fn_emitir_factura` toma el `precio_unitario` del catálogo **en el momento de emitir** y nunca
+el que mande el cliente; queda copiado en la línea, así que revalorizar el producto después no
+altera la factura ya emitida (verificado: producto a 99.00 y factura previa intacta en 1.50).
+Para las líneas de servicio (sin `id_producto`) el precio sí viene del formulario, que es lo que
+describe S-03.
+
+**No hay catálogo de servicios, y es deliberado.** RF-028 habla de "los servicios prestados",
+pero el diseño de BD final no tiene tabla `servicio`: `detalle_factura` admite `id_producto`
+nulo con `descripcion` y `precio_unitario` libres. Agregar una tabla sería ampliar un esquema ya
+aprobado (RES-05), así que un servicio se factura como línea de texto con su precio. **Si el
+cliente pide un catálogo de servicios con precios fijos, es un cambio de alcance, no una tarea
+pendiente.**
+
+**El porcentaje de impuesto es un parámetro de la llamada (`p_porcentaje_impuesto`), no un valor
+fijo en la base:** el SRS exige registrar el impuesto (RF-028) pero no fija ninguna tasa. Queda
+como valor a definir con el cliente, junto a los TBD de RNF-016/018/019.
 
 **`paciente.id_raza` y el embed de PostgREST:** es una FK **compuesta** `(id_raza, id_especie)
 → raza`. PostgREST no puede resolver automáticamente un embed sobre una FK compuesta a partir
@@ -328,8 +374,19 @@ tocar hasta que el usuario decida fusionar `Desarrollo-DA` explícitamente. Conf
 cualquier `push`, y preguntar al usuario el nombre de destino antes de subir nada — no asumir
 que es `main`.
 
+- **Módulo 5 — Facturación: base de datos lista, sin UI todavía.** La migración
+  `..._facturacion.sql` cubre lo que no puede vivir en el cliente (ver sección 6): numeración
+  por secuencia (RF-029/RN-016), recuperación de conceptos de una atención sin romper RN-006
+  (RF-028) y emisión transaccional (RES-07/RNF-005). Probado por API con las tres cuentas:
+  Recepción recupera los conceptos de una consulta (el consumo manual y la vacuna, con sus
+  precios) y emite la factura con IVA del 15% (subtotal 15.00, impuesto 2.25, total 17.25);
+  facturar dos veces la misma atención da `409` (`23505`, RN-013); un Veterinario que intenta
+  emitir recibe `403`; una atención inexistente, `23503`; una factura sin conceptos, un mensaje
+  en español; y una línea inválida revierte la cabecera completa. También se emitió una factura
+  de servicio libre sin atención asociada, a nombre del propietario.
+
 ### Pendiente
-- Módulo 5 — Facturación y Reportes (RF-028 a RF-032).
+- Módulo 5 — UI de Facturación y Reportes (RF-028 a RF-032) sobre las funciones ya migradas.
 - RI-005: impresión/exportación de factura.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
   Docker; ver sección 8).
