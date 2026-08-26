@@ -30,6 +30,7 @@ import {
   emitirFactura,
   listarAtencionesFacturables,
   obtenerConceptosDeAtencion,
+  obtenerPorcentajeImpuestoActual,
   type AtencionFacturable,
 } from './api';
 import { mensajeError } from '../../lib/errors';
@@ -88,6 +89,11 @@ export function NuevaFacturaDialog({ abierto, onCerrar, onEmitida }: Props) {
     listarAtencionesFacturables()
       .then(setAtenciones)
       .catch((err) => setErrorGeneral(mensajeError(err)));
+    // AD-15: el porcentaje configurado en Administracion > Parametros
+    // reemplaza la constante en cuanto llega; si el parametro no existiera
+    // (entorno no migrado), obtenerPorcentajeImpuestoActual ya cae de vuelta
+    // en PORCENTAJE_IMPUESTO_POR_DEFECTO.
+    obtenerPorcentajeImpuestoActual().then((pct) => setImpuesto(String(pct)));
   }, [abierto]);
 
   useEffect(() => {

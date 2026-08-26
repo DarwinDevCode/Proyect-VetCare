@@ -19,6 +19,14 @@ cálculo y agendas físicas con un sistema web centralizado. Cinco módulos cerr
 Tres roles de personal interno: **Recepcionista**, **Veterinario**, **Administrador**. El
 propietario de la mascota **no** es usuario del sistema.
 
+Además de los cinco, existe un **Módulo 6 — Administración del sistema** (`/administracion`,
+exclusivo de Administrador) que **amplía deliberadamente** el alcance cerrado por RES-05: cubre
+gestión de cuentas de usuario, roles, catálogos de especie/raza, parámetros de negocio y
+auditoría — funciones que la sección "Fuera del alcance" del SRS excluye explícitamente
+("gestión de... administración de cuentas de usuario") y que D-03 asume que ocurren fuera de la
+aplicación. Se implementó por instrucción explícita del cliente del proyecto, no por
+reinterpretación propia del SRS. Detalle completo en la sección 13.
+
 Fuente de verdad de requisitos: [`ARTEFACTOS VETCARE/1_ ESPECIFICACIÓN DE REQUISITOS/Especificación de Requisitos de Software.pdf`](ARTEFACTOS%20VETCARE/1_%20ESPECIFICACIÓN%20DE%20REQUISITOS/Especificación%20de%20Requisitos%20de%20Software.pdf)
 (RF-001 a RF-033, RNF-001 a RNF-024, RN-001 a RN-019). Fuente de verdad de base de datos:
 [`ARTEFACTOS VETCARE/5_ MODELOS DE LA BD/VetCare_Diseno_Base_de_Datos.md`](ARTEFACTOS%20VETCARE/5_%20MODELOS%20DE%20LA%20BD/VetCare_Diseno_Base_de_Datos.md).
@@ -419,10 +427,24 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   emitir recibe `403`; una atención inexistente, `23503`; una factura sin conceptos, un mensaje
   en español; y una línea inválida revierte la cabecera completa. También se emitió una factura
   de servicio libre sin atención asociada, a nombre del propietario.
+- **Módulo 6 — Administración del sistema, completo de extremo a extremo (fuera del alcance
+  original, ver sección 13 para el detalle completo)**: ciclo de vida de cuentas de usuario
+  (crear, editar, activar/desactivar con bloqueo real en GoTrue, restablecer contraseña,
+  reasignar rol), alta de roles, catálogo de especies/razas, parámetros de negocio configurables
+  (impuesto por defecto, horario de atención) y bitácora de auditoría sobre esas mismas tablas.
+  Probado de extremo a extremo por API (`curl` con JWT real de cada rol) y en navegador con la
+  cuenta `administrador`: creación de cuenta, desactivación (login del usuario rechazado con
+  `user_banned`), reactivación (login vuelve a funcionar), restablecimiento de contraseña (login
+  con la contraseña nueva funciona), rechazo con 403 cuando `veterinario` intenta invocar la
+  Edge Function, y rechazo de desactivar al único Administrador activo (mensaje de
+  `fn_proteger_ultimo_administrador`). El impuesto por defecto de `NuevaFacturaDialog` ya lee este
+  parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- Definir con el cliente el porcentaje de impuesto a aplicar (hoy 15 como valor inicial del
-  formulario, ver arriba).
+- Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
+  parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
+  Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
+  inicial — lo que falta es la decisión del cliente, no la mecánica para aplicarla.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
   Docker; ver sección 8).
 - Definir con el cliente los valores TBD del SRS: RNF-016 (tiempo de respuesta objetivo),
@@ -432,7 +454,7 @@ nombre de destino antes de subir nada — no asumir que es `main`.
 - Ninguno abierto. (El bug real encontrado durante la verificación de Módulo 1 — un embed de
   PostgREST sin `!inner` que dejaba pasar `propietario: null` y rompía el render al buscar por
   nombre del propietario sin resultados — ya está corregido y documentado en la sección 6. Los
-  bugs reales encontrados durante la verificación de Módulos 2 y 3 se describen abajo, también
+  bugs reales encontrados durante la verificación de Módulos 2, 3 y 6 se describen abajo, también
   corregidos.)
 - (Corregido) **RF-031 y el RLS de `propietario` se contradecían.** RF-031 concede la consulta
   de facturas emitidas a Recepcionista *y* Administrador, pero la política de `propietario`
@@ -496,6 +518,34 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   **local**, sin ninguna conversión de huso horario. Patrón a tener presente para cualquier
   columna `date` que se muestre a través de una vista que la castee a `timestamptz`: nunca
   formatear esa marca directamente con la hora local si el dato original no tenía hora real.
+- (Corregido) **Un trigger genérico compartido entre tablas no puede acceder a `new.<campo>`
+  salvo que la tabla que disparó el evento tenga ese campo — ni siquiera dentro de una rama de
+  `CASE` que nunca se ejecuta.** `fn_auditar_cambio` (Módulo 6) está pegado como trigger a cinco
+  tablas distintas (`usuario`, `rol`, `especie`, `raza`, `parametro_sistema`) para resolver el
+  identificador de la fila auditada con un único `CASE tg_table_name WHEN 'usuario' THEN
+  new.id_usuario::text WHEN 'parametro_sistema' THEN new.clave ... END`. Al sembrar
+  `parametro_sistema`, la migración fallaba con `record "new" has no field "id_usuario"` — pese a
+  que esa rama del `CASE` nunca debía ejecutarse para esa tabla. Postgres resuelve el acceso a un
+  campo de un `RECORD` contra el tipo real de la fila *antes* de que el `CASE` elija la rama, así
+  que cualquier `new.<campo>` que no exista en la tabla que disparó el evento revienta la
+  expresión completa, tomada o no. Corregido resolviendo el identificador contra
+  `to_jsonb(new) ->> 'campo'` en vez de `new.campo`: el acceso por clave sobre un objeto jsonb
+  simplemente da `null` cuando la clave no existe, en vez de fallar. Patrón a tener presente para
+  cualquier trigger genérico futuro compartido entre tablas con columnas distintas: nunca acceder
+  a `new`/`old` por campo directo, siempre por `to_jsonb(...) ->> 'campo'`.
+- (Corregido) **`service_role` ya no recibe privilegios automáticos sobre tablas nuevas.** La
+  Edge Function `admin-usuarios` (Módulo 6) usa la `service_role` key para crear/activar/
+  desactivar cuentas via PostgREST (`admin.from('usuario').insert(...)`). El primer intento real
+  fallaba con `permission denied for table usuario` pese a que `service_role` bypassa RLS por
+  completo: el privilegio SQL se comprueba antes que cualquier política, y esta versión del CLI
+  ya no expone automáticamente las tablas nuevas a los roles de la Data API (`anon`,
+  `authenticated`, `service_role`) sin un `GRANT` explícito — el propio `config.toml` lo describe
+  como "matching the new cloud default". Corregido con
+  `grant select, insert, update on public.usuario to service_role;` en la migración de
+  Administración. Patrón a tener presente: **cualquier tabla nueva que una Edge Function vaya a
+  tocar con la `service_role` key necesita su propio `GRANT` a `service_role`**, exactamente igual
+  que las tablas que toca `authenticated` lo necesitan desde `..._row_level_security.sql` — no es
+  algo que venga gratis por usar la clave de servicio.
 
 ## 10. Entorno local de desarrollo
 
@@ -547,3 +597,89 @@ detectada de MUI 9.3.1 con este `tsconfig` (`moduleResolution: "bundler"`):
   por línea.
 - Sin borrados físicos desde la aplicación en ningún módulo: todo "eliminar" del negocio es un
   cambio de estado (`activo = false`, `estado = 'cancelada'`, etc.).
+
+## 13. Módulo 6 — Administración del sistema (fuera del alcance original del SRS)
+
+**Por qué existe pese a RES-05/D-03.** El SRS cierra el alcance a cinco módulos y excluye
+explícitamente, en su sección "Fuera del alcance", la "gestión de empleados... y administración
+de cuentas de usuario"; D-03 asume que esa administración ocurre fuera de la aplicación. Este
+módulo amplía ese alcance de forma deliberada, por instrucción explícita del cliente del
+proyecto ("implementa las funcionalidades que debe tener un administrador del sistema, ya que
+eso es necesario para que una aplicación pueda operar"), no por reinterpretación propia de los
+requisitos. Antes de implementarlo se produjo un documento de análisis con 25 funcionalidades
+candidatas agrupadas en 7 áreas (cuentas, roles, catálogos, auditoría, sesiones, notificaciones,
+infraestructura), cada una marcada según su relación con el SRS. Este módulo implementa el
+subconjunto que resultó **esencial o importante y técnicamente proporcionado** al tamaño del
+proyecto: cuentas, roles (solo alta + consulta), catálogos de especie/raza, parámetros de
+negocio y auditoría. Deliberadamente **no** implementa:
+
+- **Editor de permisos por rol** (asignar/revocar qué puede hacer cada rol desde una pantalla).
+  Los permisos de este proyecto están escritos como texto literal dentro de ~35 políticas RLS
+  fijadas en migraciones versionadas (`fn_rol_actual() in (...)`) — es exactamente el diseño que
+  la sección 6 describe como deliberado ("la lógica crítica vive en la base, no en el cliente").
+  Convertir eso en editable requeriría pasar a un modelo de permisos dirigido por datos (tablas
+  `permiso`/`rol_permiso` que cada política RLS consultara en cada fila) — un cambio de
+  arquitectura del control de acceso completo, no una pantalla más. Por eso `RolesTab.tsx`
+  permite dar de alta un rol nuevo pero advierte explícitamente que queda sin ningún permiso real
+  hasta que una migración agregue políticas que lo mencionen.
+- **Sesiones activas, notificaciones, respaldos y monitoreo.** Sesiones activas no es una
+  operación simple de la API admin estándar de GoTrue; notificaciones más allá del banner de
+  stock que ya cubre RF-026 no añaden nada nuevo; respaldos y monitoreo son responsabilidad de la
+  plataforma (Supabase/Postgres, RNF-019 ya los declara TBD del cliente), no de la SPA — construir
+  un panel propio duplicaría Supabase Studio, que ya lo hace gratis, y contradice RES-06 (equipo
+  reducido, alcance cerrado).
+
+**Cuentas de usuario (`frontend/src/modules/administracion/`, tablas `usuario`/`rol`
+existentes).** Tres de las cinco operaciones del ciclo de vida (crear, activar/desactivar,
+restablecer contraseña) tocan `auth.users`, fuera del esquema que expone la API de datos
+(RI-007) — no se puede hacer con un `insert`/`update` normal de PostgREST. Se resuelven con la
+Edge Function `supabase/functions/admin-usuarios/index.ts`, que usa la `service_role` key
+(nunca expuesta al navegador) y **comprueba ella misma que quien llama es un Administrador
+activo** antes de hacer nada — mismo patrón que `fn_emitir_factura` (sección 6): una función con
+privilegios elevados no puede confiar en que RLS ya filtró la llamada, porque ella misma se
+salta RLS. Editar nombres/apellidos/rol de una cuenta existente, en cambio, sí es un `update`
+normal (política `usuario_update`, exclusiva de Administrador) porque no toca `auth.users`.
+
+- **Activar/desactivar es doble, a propósito.** `fn_rol_actual()` (sección 7) ahora exige
+  `u.activo` además del rol — con eso, desactivar a alguien le corta el acceso a *todas* las
+  políticas RLS del sistema con un solo cambio, sin tocar las ~35 políticas una por una. Pero eso
+  no impide que un JWT ya emitido siga siendo válido hasta que expire, ni bloquea el inicio de
+  sesión. Por eso la Edge Function hace ambas cosas en la misma llamada: pone
+  `usuario.activo = false` **y** banea la cuenta en GoTrue (`ban_duration: '876000h'`) — verificado
+  que tras desactivar, un intento de login devuelve `user_banned` de inmediato.
+- **`fn_proteger_ultimo_administrador`** (trigger `BEFORE UPDATE` en `usuario`) rechaza
+  desactivar o reasignar el rol del único Administrador activo — eco de D-03 ("el sistema
+  depende de que exista al menos un Administrador"). Se dispara tanto si se llama desde la Edge
+  Function (con la `service_role` key, que bypassa RLS pero no triggers) como desde un `update`
+  normal vía `EditarUsuarioDialog`.
+- **Restablecer contraseña es la única de las cinco que no tensiona RNF-003/RES-03**: sigue
+  delegando la verificación de credenciales en el servicio de autenticación de la plataforma,
+  solo que el cambio lo dispara un Administrador en vez del propio usuario.
+
+**Catálogos y parámetros.** `especie`/`raza` ya existían (Módulo 1); solo les faltaban políticas
+`INSERT`/`UPDATE` para Administrador — es la funcionalidad de este módulo más alineada con lo ya
+aprobado, porque RNF-024 ya exigía poder "incorporar nuevas especies, razas y productos sin
+modificar la estructura de la base de datos" y hasta ahora eso solo era cierto a nivel de
+esquema, nunca desde la aplicación. `parametro_sistema` es una tabla nueva, clave/valor, que saca
+de hardcodeado el impuesto por defecto de una factura (`impuesto_defecto_pct`, leído en vivo por
+`NuevaFacturaDialog` vía `obtenerPorcentajeImpuestoActual()` en `modules/facturacion/api.ts`, con
+la constante original como respaldo si el parámetro no existiera) y el horario de atención
+(`horario_atencion_inicio`/`_fin`, todavía no conectado a `disponibilidad.ts` — queda almacenado
+y editable, listo para conectarse sin volver a tocar el esquema, pero se dejó fuera de esta
+iteración para no ampliar más el radio de cambio).
+
+**Auditoría (`bitacora_auditoria`, distinta de RF-003/RNF-009).** RF-003 ya audita
+*operaciones* clínicas, de inventario y financieras; esto audita *cambios administrativos*
+—cuentas, roles, catálogos, parámetros— que antes no dejaban ningún rastro. Un único trigger
+genérico (`fn_auditar_cambio`) está pegado a las cinco tablas administrativas. Ver la sección 9
+("Problemas conocidos") por el detalle de dos bugs reales encontrados al construir esto: el
+acceso a `new.<campo>` en un trigger compartido entre tablas con columnas distintas, y el `GRANT`
+que `service_role` ya no recibe automáticamente en versiones recientes del CLI.
+
+**Probado:** por API con `curl` y un JWT real de cada rol — creación de cuenta, desactivación
+(login rechazado con `user_banned`), reactivación, restablecimiento de contraseña, rechazo 403 de
+`veterinario` invocando la Edge Function, rechazo de desactivar al único Administrador activo,
+RLS de `especie`/`parametro_sistema` (Administrador puede, Veterinario no), y bitácora
+registrando cada uno de esos cambios con el identificador correcto según la tabla. También en
+navegador con la cuenta `administrador`: las cinco pestañas cargan datos reales sin errores de
+consola.
