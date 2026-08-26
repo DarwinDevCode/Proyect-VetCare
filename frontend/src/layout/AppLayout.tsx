@@ -31,6 +31,7 @@ import { useAuth } from '../auth/AuthContext';
 import { modulosParaRol } from './modulos';
 import { ORGANIC } from '../theme';
 import { listarNotificaciones, type Notificacion } from './notificaciones';
+import { leerLeidasVigentes, marcarLeidaEnStorage } from '../lib/notificacionesLeidas';
 
 const ANCHO_DRAWER = 260;
 
@@ -48,31 +49,39 @@ export function AppLayout() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [leidas, setLeidas] = useState<Set<string>>(new Set());
   const [panelNotificaciones, setPanelNotificaciones] = useState<HTMLElement | null>(null);
 
   // La campana era solo visual desde la Fase 0, a proposito -- se pospuso
   // conectarla hasta que existiera un consumidor real (el KPI del Dashboard,
   // Fase 6). Ahora abre un panel real con el historial de alertas vigentes
   // por rol (stock bajo, lotes por vencer, solicitudes de cita del portal,
-  // lista de espera -- ver notificaciones.ts), sin distinguir leidas/no
-  // leidas ni guardar estado propio: cada apertura recalcula la lista tal
-  // como esta en ese momento, pedido explicito del usuario.
+  // lista de espera -- ver notificaciones.ts). El estado leida/no leida vive
+  // en localStorage (lib/notificacionesLeidas.ts), no en la base -- cada
+  // notificacion es un calculo en vivo, no una fila propia.
   useEffect(() => {
     if (!sesion) return;
     listarNotificaciones(sesion.rol.codigo)
-      .then(setNotificaciones)
+      .then((lista) => {
+        setNotificaciones(lista);
+        setLeidas(leerLeidasVigentes(sesion.usuario.id_usuario, lista.map((n) => n.id)));
+      })
       .catch(() => setNotificaciones([]));
   }, [sesion]);
-
-  function irANotificacion(n: Notificacion) {
-    setPanelNotificaciones(null);
-    navigate(n.ruta);
-  }
 
   if (!sesion) return null;
 
   const modulos = modulosParaRol(sesion.rol.codigo);
   const nombreCompleto = `${sesion.usuario.nombres} ${sesion.usuario.apellidos}`;
+  const noLeidasCount = notificaciones.filter((n) => !leidas.has(n.id)).length;
+
+  function irANotificacion(n: Notificacion) {
+    if (!sesion) return;
+    marcarLeidaEnStorage(sesion.usuario.id_usuario, n.id);
+    setLeidas((actual) => new Set(actual).add(n.id));
+    setPanelNotificaciones(null);
+    navigate(n.ruta);
+  }
 
   // Atajo de navegacion, no un buscador propio: reutiliza el buscador que ya
   // existe en Pacientes (RF-007) en vez de duplicar logica de busqueda aqui.
@@ -164,7 +173,7 @@ export function AppLayout() {
             onClick={(e) => setPanelNotificaciones(e.currentTarget)}
             aria-label="Notificaciones"
           >
-            <Badge badgeContent={notificaciones.length} color="warning">
+            <Badge badgeContent={noLeidasCount} color="warning">
               <NotificationsIcon />
             </Badge>
           </IconButton>
@@ -187,15 +196,35 @@ export function AppLayout() {
               </Box>
             ) : (
               <List sx={{ py: 0 }}>
-                {notificaciones.map((n) => (
-                  <ListItemButton key={n.id} onClick={() => irANotificacion(n)} sx={{ alignItems: 'flex-start', py: 1 }}>
-                    <ListItemText
-                      primary={n.texto}
-                      secondary={n.detalle}
-                      slotProps={{ secondary: { sx: { color: 'text.secondary' } } }}
-                    />
-                  </ListItemButton>
-                ))}
+                {notificaciones.map((n) => {
+                  const leida = leidas.has(n.id);
+                  return (
+                    <ListItemButton
+                      key={n.id}
+                      onClick={() => irANotificacion(n)}
+                      sx={{ alignItems: 'flex-start', gap: 1, py: 1, bgcolor: leida ? 'transparent' : ORGANIC.accent[100] }}
+                    >
+                      <Box
+                        sx={{
+                          mt: 0.75,
+                          width: 8,
+                          height: 8,
+                          flexShrink: 0,
+                          borderRadius: '50%',
+                          bgcolor: leida ? 'transparent' : ORGANIC.accent[600],
+                        }}
+                      />
+                      <ListItemText
+                        primary={n.texto}
+                        secondary={n.detalle}
+                        slotProps={{
+                          primary: { sx: { fontWeight: leida ? 400 : 600 } },
+                          secondary: { sx: { color: 'text.secondary' } },
+                        }}
+                      />
+                    </ListItemButton>
+                  );
+                })}
               </List>
             )}
           </Popover>

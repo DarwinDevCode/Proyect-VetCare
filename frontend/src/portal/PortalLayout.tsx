@@ -31,6 +31,8 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { usePortalAuth } from './PortalAuthContext';
 import { CambiarPasswordDialog } from './CambiarPasswordDialog';
 import { listarNotificacionesPortal, type NotificacionPortal } from './notificaciones';
+import { leerLeidasVigentes, marcarLeidaEnStorage } from '../lib/notificacionesLeidas';
+import { ORGANIC } from '../theme';
 
 const NAV = [
   { ruta: '/portal/mascotas', etiqueta: 'Mis mascotas', Icono: PetsIcon },
@@ -51,26 +53,35 @@ export function PortalLayout() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false);
   const [notificaciones, setNotificaciones] = useState<NotificacionPortal[]>([]);
+  const [leidas, setLeidas] = useState<Set<string>>(new Set());
   const [panelNotificaciones, setPanelNotificaciones] = useState<HTMLElement | null>(null);
 
-  // Mismo criterio que la campana de personal (AppLayout.tsx): sin estado de
-  // "leida" propio, se recalcula cada vez que se abre.
+  // Mismo criterio que la campana de personal (AppLayout.tsx): la lista se
+  // recalcula cada vez que se abre, pero el estado leida/no leida persiste
+  // en localStorage (lib/notificacionesLeidas.ts), por propietario.
   useEffect(() => {
     if (!sesion) return;
     listarNotificacionesPortal()
-      .then(setNotificaciones)
+      .then((lista) => {
+        setNotificaciones(lista);
+        setLeidas(leerLeidasVigentes(String(sesion.propietario.id_propietario), lista.map((n) => n.id)));
+      })
       .catch(() => setNotificaciones([]));
   }, [sesion]);
-
-  function irANotificacion(n: NotificacionPortal) {
-    setPanelNotificaciones(null);
-    navigate(n.ruta);
-  }
 
   if (!sesion) return null;
 
   const nombreCompleto = `${sesion.propietario.nombres} ${sesion.propietario.apellidos}`;
   const seccionActiva = NAV.find((item) => location.pathname.startsWith(item.ruta))?.ruta ?? false;
+  const noLeidasCount = notificaciones.filter((n) => !leidas.has(n.id)).length;
+
+  function irANotificacion(n: NotificacionPortal) {
+    if (!sesion) return;
+    marcarLeidaEnStorage(String(sesion.propietario.id_propietario), n.id);
+    setLeidas((actual) => new Set(actual).add(n.id));
+    setPanelNotificaciones(null);
+    navigate(n.ruta);
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -99,7 +110,7 @@ export function PortalLayout() {
             {nombreCompleto}
           </Typography>
           <IconButton onClick={(e) => setPanelNotificaciones(e.currentTarget)} aria-label="Notificaciones">
-            <Badge badgeContent={notificaciones.length} color="warning">
+            <Badge badgeContent={noLeidasCount} color="warning">
               <NotificationsIcon />
             </Badge>
           </IconButton>
@@ -122,15 +133,35 @@ export function PortalLayout() {
               </Box>
             ) : (
               <List sx={{ py: 0 }}>
-                {notificaciones.map((n) => (
-                  <ListItemButton key={n.id} onClick={() => irANotificacion(n)} sx={{ alignItems: 'flex-start', py: 1 }}>
-                    <ListItemText
-                      primary={n.texto}
-                      secondary={n.detalle}
-                      slotProps={{ secondary: { sx: { color: 'text.secondary' } } }}
-                    />
-                  </ListItemButton>
-                ))}
+                {notificaciones.map((n) => {
+                  const leida = leidas.has(n.id);
+                  return (
+                    <ListItemButton
+                      key={n.id}
+                      onClick={() => irANotificacion(n)}
+                      sx={{ alignItems: 'flex-start', gap: 1, py: 1, bgcolor: leida ? 'transparent' : ORGANIC.accent[100] }}
+                    >
+                      <Box
+                        sx={{
+                          mt: 0.75,
+                          width: 8,
+                          height: 8,
+                          flexShrink: 0,
+                          borderRadius: '50%',
+                          bgcolor: leida ? 'transparent' : ORGANIC.accent[600],
+                        }}
+                      />
+                      <ListItemText
+                        primary={n.texto}
+                        secondary={n.detalle}
+                        slotProps={{
+                          primary: { sx: { fontWeight: leida ? 400 : 600 } },
+                          secondary: { sx: { color: 'text.secondary' } },
+                        }}
+                      />
+                    </ListItemButton>
+                  );
+                })}
               </List>
             )}
           </Popover>
