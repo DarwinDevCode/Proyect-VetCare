@@ -139,6 +139,9 @@ export interface Producto {
   existencia_actual: number;
   precio_unitario: number;
   activo: boolean;
+  // RF-041 (Fase 2): dias hasta la siguiente dosis, solo relevante para tipo
+  // 'vacuna'. Nullable -- no todo el catalogo tiene un esquema de refuerzo conocido.
+  intervalo_dias: number | null;
 }
 
 export type TipoMovimiento = 'ingreso' | 'ajuste' | 'consumo';
@@ -155,6 +158,22 @@ export interface MovimientoInventario {
   id_consulta: number | null;
   id_vacunacion: number | null;
   observacion: string | null;
+  // Fase 2 (version ligera de lotes, ver CLAUDE.md/REDISENO-ORGANIC-PLAN.md): solo se
+  // completan en un movimiento 'ingreso'; no participan de fn_actualizar_existencia.
+  lote_codigo: string | null;
+  fecha_vencimiento: string | null;
+}
+
+// Fila de v_lotes_por_vencer (Fase 2): ingresos con vencimiento en los proximos 30
+// dias. Se deriva siempre de current_date, nunca se almacena como estado.
+export interface LotePorVencer {
+  id_movimiento: number;
+  id_producto: number;
+  producto: string;
+  lote_codigo: string | null;
+  fecha_vencimiento: string;
+  cantidad: number;
+  fecha_hora: string;
 }
 
 export interface MovimientoConResponsable extends MovimientoInventario {
@@ -174,6 +193,23 @@ export interface Consulta {
   diagnostico: string;
   tratamiento: string | null;
   peso_kg: number | null;
+  // RF-040 (Fase 2): signos vitales, todos opcionales -- amplian RF-016 sin volverse
+  // parte de "los cuatro elementos" obligatorios.
+  temperatura_c: number | null;
+  frecuencia_cardiaca_lpm: number | null;
+  frecuencia_respiratoria_rpm: number | null;
+}
+
+// Fila de v_vacunas_proximas (RF-041, Fase 2): una por paciente+vacuna con
+// intervalo_dias definido. proxima_fecha se calcula siempre en la base a partir de
+// la ultima aplicacion, nunca en el cliente.
+export interface VacunaProxima {
+  id_paciente: number;
+  id_producto: number;
+  producto: string;
+  ultima_aplicacion: string;
+  intervalo_dias: number;
+  proxima_fecha: string;
 }
 
 export interface Vacunacion {
@@ -215,6 +251,10 @@ export interface EventoHistorial {
   tratamiento: string | null;
   producto_o_examen: string | null;
   id_veterinario: string;
+  // RF-040 (Fase 2): solo tienen valor en una fila 'consulta'; null en las demas.
+  temperatura_c: number | null;
+  frecuencia_cardiaca_lpm: number | null;
+  frecuencia_respiratoria_rpm: number | null;
 }
 
 export type FormaPago = 'efectivo' | 'tarjeta' | 'transferencia';

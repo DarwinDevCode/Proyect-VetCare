@@ -9,6 +9,7 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import dayjs from 'dayjs';
 import { crearConsulta, listarCitasVinculables } from './api';
@@ -28,7 +29,16 @@ interface Props {
   onCreado: () => void;
 }
 
-const VACIO = { motivo: '', diagnostico: '', hallazgos: '', tratamiento: '', pesoKg: '' };
+const VACIO = {
+  motivo: '',
+  diagnostico: '',
+  hallazgos: '',
+  tratamiento: '',
+  pesoKg: '',
+  temperaturaC: '',
+  frecuenciaCardiaca: '',
+  frecuenciaRespiratoria: '',
+};
 
 // RF-016: motivo/hallazgos/diagnostico/tratamiento se guardan en una sola operacion
 // (un insert ya es atomico). RF-017: vincular con la cita que la origino es
@@ -62,6 +72,20 @@ export function NuevaConsultaDialog({ idPaciente, abierto, onCerrar, onCreado }:
       const peso = Number(form.pesoKg);
       if (Number.isNaN(peso) || peso <= 0) nuevosErrores.pesoKg = 'Debe ser un número mayor a 0.';
     }
+    if (form.temperaturaC.trim() !== '') {
+      const temperatura = Number(form.temperaturaC);
+      if (Number.isNaN(temperatura) || temperatura <= 0) {
+        nuevosErrores.temperaturaC = 'Debe ser un número mayor a 0.';
+      }
+    }
+    if (form.frecuenciaCardiaca.trim() !== '') {
+      const fc = Number(form.frecuenciaCardiaca);
+      if (!Number.isInteger(fc) || fc <= 0) nuevosErrores.frecuenciaCardiaca = 'Debe ser un entero mayor a 0.';
+    }
+    if (form.frecuenciaRespiratoria.trim() !== '') {
+      const fr = Number(form.frecuenciaRespiratoria);
+      if (!Number.isInteger(fr) || fr <= 0) nuevosErrores.frecuenciaRespiratoria = 'Debe ser un entero mayor a 0.';
+    }
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
   }
@@ -80,6 +104,9 @@ export function NuevaConsultaDialog({ idPaciente, abierto, onCerrar, onCreado }:
         diagnostico: form.diagnostico.trim(),
         tratamiento: form.tratamiento.trim() || null,
         peso_kg: form.pesoKg.trim() ? Number(form.pesoKg) : null,
+        temperatura_c: form.temperaturaC.trim() ? Number(form.temperaturaC) : null,
+        frecuencia_cardiaca_lpm: form.frecuenciaCardiaca.trim() ? Number(form.frecuenciaCardiaca) : null,
+        frecuencia_respiratoria_rpm: form.frecuenciaRespiratoria.trim() ? Number(form.frecuenciaRespiratoria) : null,
       });
       onCreado();
       onCerrar();
@@ -163,6 +190,40 @@ export function NuevaConsultaDialog({ idPaciente, abierto, onCerrar, onCreado }:
             slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
             onChange={(e) => setForm((f) => ({ ...f, pesoKg: e.target.value }))}
           />
+
+          <Typography variant="subtitle2">Signos vitales (opcional)</Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Temperatura (°C)"
+              type="number"
+              fullWidth
+              value={form.temperaturaC}
+              error={!!errores.temperaturaC}
+              helperText={errores.temperaturaC}
+              slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }}
+              onChange={(e) => setForm((f) => ({ ...f, temperaturaC: e.target.value }))}
+            />
+            <TextField
+              label="Frec. cardíaca (lpm)"
+              type="number"
+              fullWidth
+              value={form.frecuenciaCardiaca}
+              error={!!errores.frecuenciaCardiaca}
+              helperText={errores.frecuenciaCardiaca}
+              slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              onChange={(e) => setForm((f) => ({ ...f, frecuenciaCardiaca: e.target.value }))}
+            />
+            <TextField
+              label="Frec. respiratoria (rpm)"
+              type="number"
+              fullWidth
+              value={form.frecuenciaRespiratoria}
+              error={!!errores.frecuenciaRespiratoria}
+              helperText={errores.frecuenciaRespiratoria}
+              slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              onChange={(e) => setForm((f) => ({ ...f, frecuenciaRespiratoria: e.target.value }))}
+            />
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>

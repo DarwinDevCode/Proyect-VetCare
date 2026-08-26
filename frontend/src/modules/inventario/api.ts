@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabaseClient';
-import type { MovimientoConResponsable, MovimientoInventario, Producto } from '../../types/dominio';
+import type { LotePorVencer, MovimientoConResponsable, MovimientoInventario, Producto } from '../../types/dominio';
 
 // RF-025: catalogo completo (activos e inactivos, para que Administrador pueda
 // reactivar). Sin filtro de texto: a diferencia de paciente/propietario, el catalogo
@@ -55,9 +55,20 @@ export async function listarMovimientos(idProducto: number): Promise<MovimientoC
 // fn_actualizar_existencia.
 export async function registrarMovimiento(
   datos: Pick<MovimientoInventario, 'id_producto' | 'tipo_movimiento' | 'cantidad' | 'observacion'> &
-    Partial<Pick<MovimientoInventario, 'id_consulta' | 'id_vacunacion'>>,
+    Partial<Pick<MovimientoInventario, 'id_consulta' | 'id_vacunacion' | 'lote_codigo' | 'fecha_vencimiento'>>,
 ): Promise<MovimientoInventario> {
   const { data, error } = await supabase.from('movimiento_inventario').insert(datos).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// RF-041 parte de inventario (version ligera de lotes, Fase 2): ingresos con
+// vencimiento en los proximos 30 dias, mas reciente primero.
+export async function listarLotesPorVencer(): Promise<LotePorVencer[]> {
+  const { data, error } = await supabase
+    .from('v_lotes_por_vencer')
+    .select('*')
+    .order('fecha_vencimiento');
   if (error) throw error;
   return data;
 }

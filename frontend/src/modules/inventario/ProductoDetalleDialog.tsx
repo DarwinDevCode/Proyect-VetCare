@@ -56,6 +56,8 @@ const MOVIMIENTO_VACIO = {
   signoAjuste: null as 'aumentar' | 'disminuir' | null,
   cantidad: '',
   observacion: '',
+  loteCodigo: '',
+  fechaVencimiento: '',
 };
 
 function bajoMinimo(p: Producto): boolean {
@@ -77,6 +79,7 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
     unidadMedida: '',
     nivelMinimo: '',
     precioUnitario: '',
+    intervaloDias: '',
     activo: true,
   });
   const [formMovimiento, setFormMovimiento] = useState(MOVIMIENTO_VACIO);
@@ -99,6 +102,7 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
       unidadMedida: producto.unidad_medida,
       nivelMinimo: String(producto.nivel_minimo),
       precioUnitario: String(producto.precio_unitario),
+      intervaloDias: producto.intervalo_dias !== null ? String(producto.intervalo_dias) : '',
       activo: producto.activo,
     });
     setFormMovimiento(MOVIMIENTO_VACIO);
@@ -134,6 +138,12 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
     if (formEdicion.precioUnitario.trim() === '' || Number.isNaN(precioUnitario) || precioUnitario < 0) {
       nuevosErrores.precioUnitario = 'Debe ser un número mayor o igual a 0.';
     }
+    if (formEdicion.intervaloDias.trim() !== '') {
+      const intervalo = Number(formEdicion.intervaloDias);
+      if (!Number.isInteger(intervalo) || intervalo <= 0) {
+        nuevosErrores.intervaloDias = 'Debe ser un número entero mayor a 0.';
+      }
+    }
 
     setErroresEdicion(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
@@ -153,6 +163,8 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
         unidad_medida: formEdicion.unidadMedida.trim(),
         nivel_minimo: Number(formEdicion.nivelMinimo),
         precio_unitario: Number(formEdicion.precioUnitario),
+        intervalo_dias:
+          formEdicion.tipo === 'vacuna' && formEdicion.intervaloDias.trim() ? Number(formEdicion.intervaloDias) : null,
         activo: formEdicion.activo,
       });
       setEditando(false);
@@ -197,6 +209,12 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
         tipo_movimiento: formMovimiento.tipo,
         cantidad: cantidadFirmada,
         observacion: formMovimiento.observacion.trim() || null,
+        ...(formMovimiento.tipo === 'ingreso'
+          ? {
+              lote_codigo: formMovimiento.loteCodigo.trim() || null,
+              fecha_vencimiento: formMovimiento.fechaVencimiento || null,
+            }
+          : {}),
       });
       setFormMovimiento(MOVIMIENTO_VACIO);
       setRegistrandoMovimiento(false);
@@ -317,6 +335,19 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
                   />
                 </Stack>
 
+                {formEdicion.tipo === 'vacuna' && (
+                  <TextField
+                    label="Intervalo entre dosis (días, opcional)"
+                    type="number"
+                    fullWidth
+                    value={formEdicion.intervaloDias}
+                    error={!!erroresEdicion.intervaloDias}
+                    helperText={erroresEdicion.intervaloDias}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    onChange={(e) => setFormEdicion((f) => ({ ...f, intervaloDias: e.target.value }))}
+                  />
+                )}
+
                 <FormControlLabel
                   control={
                     <Switch
@@ -348,6 +379,11 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
                 <Typography variant="body2" color="text.secondary">
                   Precio unitario: ${producto.precio_unitario.toFixed(2)}
                 </Typography>
+                {producto.tipo === 'vacuna' && producto.intervalo_dias !== null && (
+                  <Typography variant="body2" color="text.secondary">
+                    Intervalo entre dosis: {producto.intervalo_dias} días
+                  </Typography>
+                )}
               </Stack>
             )}
           </Box>
@@ -413,6 +449,26 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
                   />
                 </Stack>
 
+                {formMovimiento.tipo === 'ingreso' && (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <TextField
+                      label="Lote (opcional)"
+                      fullWidth
+                      value={formMovimiento.loteCodigo}
+                      slotProps={{ htmlInput: { maxLength: 30 } }}
+                      onChange={(e) => setFormMovimiento((f) => ({ ...f, loteCodigo: e.target.value }))}
+                    />
+                    <TextField
+                      label="Fecha de vencimiento (opcional)"
+                      type="date"
+                      fullWidth
+                      value={formMovimiento.fechaVencimiento}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      onChange={(e) => setFormMovimiento((f) => ({ ...f, fechaVencimiento: e.target.value }))}
+                    />
+                  </Stack>
+                )}
+
                 <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                   <Button
                     onClick={() => {
@@ -438,34 +494,58 @@ export function ProductoDetalleDialog({ producto, puedeGestionar, onCerrar, onAc
                     <TableCell>Tipo</TableCell>
                     <TableCell>Cantidad</TableCell>
                     <TableCell>Existencia resultante</TableCell>
+                    <TableCell>Lote / Vencimiento</TableCell>
                     <TableCell>Responsable</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {!cargandoMovimientos && movimientos.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                      <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
                         <Typography variant="body2" color="text.secondary">
                           Sin movimientos registrados.
                         </Typography>
                       </TableCell>
                     </TableRow>
                   )}
-                  {movimientos.map((m) => (
-                    <TableRow key={m.id_movimiento}>
-                      <TableCell>{dayjs(m.fecha_hora).format('DD/MM/YYYY HH:mm')}</TableCell>
-                      <TableCell>
-                        <Chip label={ETIQUETA_TIPO_MOVIMIENTO[m.tipo_movimiento]} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>
-                        {m.cantidad > 0 ? `+${m.cantidad}` : m.cantidad}
-                      </TableCell>
-                      <TableCell>{m.existencia_resultante}</TableCell>
-                      <TableCell>
-                        {m.usuario.nombres} {m.usuario.apellidos}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {movimientos.map((m) => {
+                    const porVencer =
+                      !!m.fecha_vencimiento && dayjs(m.fecha_vencimiento).diff(dayjs(), 'day') <= 30;
+                    return (
+                      <TableRow key={m.id_movimiento}>
+                        <TableCell>{dayjs(m.fecha_hora).format('DD/MM/YYYY HH:mm')}</TableCell>
+                        <TableCell>
+                          <Chip label={ETIQUETA_TIPO_MOVIMIENTO[m.tipo_movimiento]} size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell>
+                          {m.cantidad > 0 ? `+${m.cantidad}` : m.cantidad}
+                        </TableCell>
+                        <TableCell>{m.existencia_resultante}</TableCell>
+                        <TableCell>
+                          {m.lote_codigo || m.fecha_vencimiento ? (
+                            <Stack spacing={0.25}>
+                              {m.lote_codigo && (
+                                <Typography variant="body2">{m.lote_codigo}</Typography>
+                              )}
+                              {m.fecha_vencimiento && (
+                                <Chip
+                                  label={`Vence ${dayjs(m.fecha_vencimiento).format('DD/MM/YYYY')}`}
+                                  size="small"
+                                  color={porVencer ? 'warning' : 'default'}
+                                  variant="outlined"
+                                />
+                              )}
+                            </Stack>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {m.usuario.nombres} {m.usuario.apellidos}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

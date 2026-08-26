@@ -5,6 +5,7 @@ import type {
   ExamenLaboratorio,
   PacienteConFicha,
   Vacunacion,
+  VacunaProxima,
 } from '../../types/dominio';
 
 // Tipos locales y angostos, deliberadamente NO agregados a types/dominio.ts: los
@@ -144,6 +145,24 @@ export async function crearVacunacion(
   datos: Omit<Vacunacion, 'id_vacunacion' | 'id_veterinario' | 'fecha_aplicacion'>,
 ): Promise<Vacunacion> {
   const { data, error } = await supabase.from('vacunacion').insert(datos).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// RF-041 (Fase 2): ultima aplicacion + proxima fecha de ESTA vacuna para ESTE
+// paciente, para mostrarla como referencia mientras se elige el producto en
+// NuevaVacunacionDialog. null si el producto no tiene intervalo_dias definido o si
+// nunca se aplico antes -- ambos casos validos, no un error.
+export async function obtenerProximaVacuna(
+  idPaciente: number,
+  idProducto: number,
+): Promise<VacunaProxima | null> {
+  const { data, error } = await supabase
+    .from('v_vacunas_proximas')
+    .select('*')
+    .eq('id_paciente', idPaciente)
+    .eq('id_producto', idProducto)
+    .maybeSingle();
   if (error) throw error;
   return data;
 }

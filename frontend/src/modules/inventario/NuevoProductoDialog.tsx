@@ -29,6 +29,7 @@ const VACIO = {
   unidadMedida: '',
   nivelMinimo: '',
   precioUnitario: '',
+  intervaloDias: '',
 };
 
 // RF-021: registrar medicamentos, insumos y vacunas, indicando unidad de medida,
@@ -71,6 +72,12 @@ export function NuevoProductoDialog({ abierto, onCerrar, onCreado }: Props) {
     if (form.precioUnitario.trim() === '' || Number.isNaN(precioUnitario) || precioUnitario < 0) {
       nuevosErrores.precioUnitario = 'Debe ser un número mayor o igual a 0.';
     }
+    if (form.intervaloDias.trim() !== '') {
+      const intervalo = Number(form.intervaloDias);
+      if (!Number.isInteger(intervalo) || intervalo <= 0) {
+        nuevosErrores.intervaloDias = 'Debe ser un número entero mayor a 0.';
+      }
+    }
 
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
@@ -90,6 +97,7 @@ export function NuevoProductoDialog({ abierto, onCerrar, onCreado }: Props) {
         unidad_medida: form.unidadMedida.trim(),
         nivel_minimo: Number(form.nivelMinimo),
         precio_unitario: Number(form.precioUnitario),
+        intervalo_dias: tipo === 'vacuna' && form.intervaloDias.trim() ? Number(form.intervaloDias) : null,
       });
       onCreado();
       cerrar();
@@ -188,6 +196,20 @@ export function NuevoProductoDialog({ abierto, onCerrar, onCreado }: Props) {
               onChange={(e) => setForm((f) => ({ ...f, precioUnitario: e.target.value }))}
             />
           </Stack>
+
+          {tipo === 'vacuna' && (
+            <TextField
+              label="Intervalo entre dosis (días, opcional)"
+              type="number"
+              fullWidth
+              placeholder="ej. 365 para refuerzo anual"
+              value={form.intervaloDias}
+              error={!!errores.intervaloDias}
+              helperText={errores.intervaloDias || 'Se usa para sugerir la próxima fecha de aplicación (RF-041).'}
+              slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              onChange={(e) => setForm((f) => ({ ...f, intervaloDias: e.target.value }))}
+            />
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
