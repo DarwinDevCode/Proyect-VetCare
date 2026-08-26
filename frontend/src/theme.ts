@@ -115,7 +115,17 @@ export const theme = createTheme(
         styleOverrides: { root: { borderRadius: 999, border: 'none' } },
       },
       MuiDialog: {
-        styleOverrides: { paper: { borderRadius: ORGANIC.radius.lg, boxShadow: ORGANIC.shadow.lg } },
+        styleOverrides: {
+          // fullScreen (portal en movil, ver PortalLayout/*PortalPage.tsx) no debe
+          // heredar el radio grande: un dialogo que ocupa el viewport completo no
+          // tiene "borde" contra el que redondear -- con radio, sus cuatro esquinas
+          // recortarian contenido cuadrado dejando ver el fondo detras, un defecto
+          // visual, no una decision de diseño.
+          paper: ({ ownerState }: { ownerState: { fullScreen?: boolean } }) => ({
+            borderRadius: ownerState.fullScreen ? 0 : ORGANIC.radius.lg,
+            boxShadow: ORGANIC.shadow.lg,
+          }),
+        },
       },
       MuiCard: {
         styleOverrides: { root: { borderRadius: ORGANIC.radius.md } },

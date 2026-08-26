@@ -3,28 +3,36 @@ import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
+  BottomNavigation,
+  BottomNavigationAction,
   Box,
   Button,
   Container,
   IconButton,
   Menu,
   MenuItem,
+  Paper,
   Toolbar,
   Typography,
 } from '@mui/material';
 import PetsIcon from '@mui/icons-material/Pets';
+import EventIcon from '@mui/icons-material/Event';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { usePortalAuth } from './PortalAuthContext';
 
 const NAV = [
-  { ruta: '/portal/mascotas', etiqueta: 'Mis mascotas' },
-  { ruta: '/portal/citas', etiqueta: 'Mis citas' },
-  { ruta: '/portal/facturas', etiqueta: 'Mis facturas' },
+  { ruta: '/portal/mascotas', etiqueta: 'Mis mascotas', Icono: PetsIcon },
+  { ruta: '/portal/citas', etiqueta: 'Mis citas', Icono: EventIcon },
+  { ruta: '/portal/facturas', etiqueta: 'Mis facturas', Icono: ReceiptLongIcon },
 ];
 
 // Layout propio del portal, deliberadamente mas simple que AppLayout (personal):
-// solo tres secciones, sin Drawer -- no hace falta reproducir esa maquinaria para
-// un menu de tres enlaces.
+// solo tres secciones. En escritorio siguen como enlaces en el AppBar; en
+// movil (RF-043/044/045 se usan tanto o mas desde el celular del propietario
+// que desde una compu) se agrega una barra de navegacion fija abajo, con
+// iconos alcanzables con el pulgar -- reemplaza los enlaces de texto, que en
+// una pantalla angosta no entraban en una sola fila del Toolbar.
 export function PortalLayout() {
   const { sesion, cerrarSesion } = usePortalAuth();
   const location = useLocation();
@@ -33,13 +41,14 @@ export function PortalLayout() {
   if (!sesion) return null;
 
   const nombreCompleto = `${sesion.propietario.nombres} ${sesion.propietario.apellidos}`;
+  const seccionActiva = NAV.find((item) => location.pathname.startsWith(item.ruta))?.ruta ?? false;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ gap: 1 }}>
           <PetsIcon color="primary" />
-          <Typography variant="h6" sx={{ fontSize: 20, mr: 3 }}>
+          <Typography variant="h6" sx={{ fontSize: 20, mr: { xs: 1, sm: 3 } }}>
             VetCare
           </Typography>
 
@@ -50,6 +59,7 @@ export function PortalLayout() {
                 component={RouterLink}
                 to={item.ruta}
                 color={location.pathname.startsWith(item.ruta) ? 'primary' : 'inherit'}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
               >
                 {item.etiqueta}
               </Button>
@@ -77,9 +87,27 @@ export function PortalLayout() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="md" sx={{ py: 3 }}>
+      <Container maxWidth="md" sx={{ py: 3, px: { xs: 2, sm: 3 }, pb: { xs: 9, sm: 3 } }}>
         <Outlet />
       </Container>
+
+      <Paper
+        elevation={3}
+        sx={{ display: { xs: 'block', sm: 'none' }, position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: (t) => t.zIndex.appBar }}
+      >
+        <BottomNavigation value={seccionActiva} showLabels sx={{ height: 64 }}>
+          {NAV.map((item) => (
+            <BottomNavigationAction
+              key={item.ruta}
+              component={RouterLink}
+              to={item.ruta}
+              value={item.ruta}
+              label={item.etiqueta}
+              icon={<item.Icono />}
+            />
+          ))}
+        </BottomNavigation>
+      </Paper>
     </Box>
   );
 }

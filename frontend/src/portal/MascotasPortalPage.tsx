@@ -12,6 +12,8 @@ import {
   IconButton,
   Stack,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PetsIcon from '@mui/icons-material/Pets';
@@ -24,6 +26,8 @@ import { calcularEdadTexto } from '../modules/pacientes/edad';
 // RF-044: mascotas propias + su carnet de vacunas. Sin diagnostico, hallazgos ni
 // tratamiento -- RN-006 sigue intacto tambien en el portal (v_carnet_portal).
 export function MascotasPortalPage() {
+  const theme = useTheme();
+  const esMovil = useMediaQuery(theme.breakpoints.down('sm'));
   const [mascotas, setMascotas] = useState<PacienteConFicha[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +93,7 @@ export function MascotasPortalPage() {
         ))}
       </Grid>
 
-      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="xs" fullWidth fullScreen={esMovil}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
           Carnet de vacunas · {seleccionada?.nombre}
           <IconButton sx={{ ml: 'auto' }} onClick={() => setSeleccionada(null)}>
