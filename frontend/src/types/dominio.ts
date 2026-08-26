@@ -124,6 +124,24 @@ export interface CitaConDetalle extends Cita {
   veterinario: Pick<Usuario, 'id_usuario' | 'nombres' | 'apellidos'>;
 }
 
+// RF-034/RF-035 (Fase 2): amplia RF-011 con una lista de espera real, sin
+// notificacion (sigue fuera de alcance). "Quitar" una entrada es un UPDATE a
+// atendida/cancelada, nunca un DELETE (RF-033).
+export type EstadoListaEspera = 'pendiente' | 'atendida' | 'cancelada';
+export type FranjaPreferida = 'manana' | 'tarde';
+
+export interface ListaEspera {
+  id_lista_espera: number;
+  id_paciente: number;
+  id_veterinario: string | null;
+  fecha_preferida: string | null;
+  franja_preferida: FranjaPreferida | null;
+  motivo: string;
+  estado: EstadoListaEspera;
+  id_usuario_registro: string;
+  fecha_registro: string;
+}
+
 export type TipoProducto = 'medicamento' | 'insumo' | 'vacuna';
 
 export interface Producto {

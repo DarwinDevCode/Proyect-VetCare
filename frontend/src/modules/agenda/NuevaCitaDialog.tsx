@@ -14,12 +14,18 @@ import type { PacienteParaCita, Usuario } from '../../types/dominio';
 import { PacienteAutocomplete } from './PacienteAutocomplete';
 import { SelectorHorarioCita } from './SelectorHorarioCita';
 import { useDisponibilidadCita } from './useDisponibilidadCita';
-import { crearCita } from './api';
+import { crearCita, marcarAtendidaListaEspera } from './api';
 import { mensajeError } from '../../lib/errors';
 
 interface Prefill {
   idVeterinario?: string;
   hora?: Dayjs;
+  // Wiring RF-015 (1i): al agendar desde una coincidencia de lista de espera, el
+  // paciente ya viene elegido (no hace falta buscarlo de nuevo) y la entrada se
+  // marca 'atendida' al confirmar -- distingue "se le dio el cupo" de "cancelada"
+  // (el propietario ya no espera nada).
+  pacienteInicial?: PacienteParaCita;
+  idListaEspera?: number;
 }
 
 interface Props {
@@ -54,7 +60,7 @@ export function NuevaCitaDialog({
 
   useEffect(() => {
     if (!abierto) return;
-    setPaciente(null);
+    setPaciente(prefill?.pacienteInicial ?? null);
     setIdVeterinario(prefill?.idVeterinario ?? '');
     // Si el prefill trae hora (clic en un hueco del grid), esa hora ya lleva
     // el dia correcto -- en la vista semanal, "fechaPorDefecto" es solo el
@@ -105,6 +111,9 @@ export function NuevaCitaDialog({
         duracion_minutos: duracionMinutos,
         motivo: motivo.trim() || null,
       });
+      if (prefill?.idListaEspera) {
+        await marcarAtendidaListaEspera(prefill.idListaEspera);
+      }
       onCreada();
       onCerrar();
     } catch (error) {

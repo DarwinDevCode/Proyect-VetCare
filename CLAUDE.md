@@ -441,11 +441,11 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0, 1 y 2
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0, 1, 2 y 3
   completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); quedan
-  las Fases 3 a 6 (lista de espera, Compras y Proveedores, Portal del propietario, Dashboard).
-  No commitear ni desplegar ninguna fase sin haberla verificado por separado — es la condición
-  bajo la que el usuario aprobó el plan.
+  las Fases 4 a 6 (Compras y Proveedores, Portal del propietario, Dashboard). No commitear ni
+  desplegar ninguna fase sin haberla verificado por separado — es la condición bajo la que el
+  usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -1013,3 +1013,65 @@ producto, lote/vencimiento visibles en su fila de movimientos. `npm run build`
 limpio (tras un `npm install` para traer `@fontsource/figtree`/`@fontsource/caprasimo`,
 declarados en `package.json` desde la Fase 0 pero ausentes de `node_modules` en este
 entorno — no relacionado con el código de esta fase).
+
+### Fase 3 — completada: lista de espera (RF-034/RF-035)
+
+Una tabla real (`lista_espera`), sin notificación por WhatsApp/Email/SMS — eso sigue fuera
+de alcance. Mismo patrón de acceso que el resto del Módulo 2 (Agenda): Recepcionista
+gestiona, Veterinario solo consulta; sin política `DELETE` (RF-033), "quitar" una entrada
+es un `UPDATE` a `cancelada` o `atendida`.
+
+- **Migración `lista_espera`**: `id_paciente` obligatorio, `id_veterinario` **nullable**
+  (una solicitud puede ser "con cualquier veterinario"), `fecha_preferida`/
+  `franja_preferida` (`manana`/`tarde`) opcionales — son preferencia del propietario, no
+  un cupo real, a diferencia de `cita`. `estado` en `pendiente`/`atendida`/`cancelada`.
+  RLS calcada de `cita` (`row_level_security.sql`), con su propio `GRANT` explícito a
+  `authenticated` (objeto posterior al `GRANT ... ALL TABLES` de esa migración, mismo
+  problema ya documentado en la sección 9). **Verificado que la columna `identity` no
+  necesita un `GRANT` de secuencia aparte**: a diferencia de una `sequence` referenciada
+  a mano, Postgres no exige `USAGE` sobre la secuencia interna de una columna
+  `generated always as identity` — solo el privilegio sobre la tabla. Confirmado por
+  `curl`: recepcionista inserta sin error pese a que la migración no otorga nada sobre
+  la secuencia.
+- **`ListaEsperaTab.tsx`** vive como una segunda pestaña dentro de `AgendaPage.tsx`
+  (`Tabs` "Agenda"/"Lista de espera", justo debajo del encabezado), no como ruta propia
+  — es una vista más de Agenda, no un módulo aparte. Filtro "Pendientes"/"Todas" (chips,
+  mismo patrón que Inventario). `NuevaListaEsperaDialog.tsx` reutiliza
+  `PacienteAutocomplete` ya existente; veterinario preferido es un `select` con
+  "Cualquiera" como opción explícita (mapea a `id_veterinario: null`), no una casilla
+  aparte.
+- **Wiring RF-015 (1i) — "liberar cupo a lista de espera"**: al cancelar una cita,
+  `CitaDetalleDialog.tsx` consulta `listarCoincidenciasListaEspera(idVeterinario)` —
+  entradas `pendiente` con `id_veterinario` igual al de la cita cancelada **o** `null`
+  ("cualquiera" también cuenta como coincidencia). No se filtra por `fecha_preferida`:
+  es una preferencia, no un requisito, y filtrar de más ocultaría coincidencias reales
+  (alguien que pidió "lo antes posible", sin fecha). Cada coincidencia tiene un botón
+  "Agendar con este cupo" que cierra el detalle y abre `NuevaCitaDialog` ya con
+  paciente/veterinario/hora del cupo liberado — se amplió el `Prefill` de
+  `NuevaCitaDialog` con `pacienteInicial`/`idListaEspera`; al confirmar la nueva cita,
+  si viene de una coincidencia, se llama `marcarAtendidaListaEspera` en la misma acción.
+  "Atendida" es un estado distinto de "cancelada" a propósito: cancelada significa que
+  el propietario ya no espera nada, atendida significa que se le dio el cupo.
+
+**Bug de entorno encontrado y corregido, no del código de esta fase**: al construir esta
+fase, el servidor de desarrollo (`vite`) quedó con un error de transformación cacheado de
+un estado intermedio de `AgendaPage.tsx` (un JSX válido a mitad de una serie de ediciones
+secuenciales) y no se recuperó solo — `npm run build` (una compilación completa desde
+cero) ya daba limpio, pero el HMR seguía sirviendo el error viejo y bloqueaba **toda la
+aplicación**, incluido el login, porque `App.tsx` importa las rutas de forma eager. Se
+resolvió reiniciando el servidor de Vite. Patrón a tener presente: si el build de
+producción está limpio pero el navegador muestra un error de transformación que no
+coincide con el archivo actual, sospechar del caché de HMR antes que del código.
+
+**Verificado**: `db reset` limpio; por `curl` con JWT real — Veterinario forzando un
+`INSERT` en `lista_espera` recibe `403`; Recepcionista inserta sin necesitar ningún
+`GRANT` de secuencia; RLS de `UPDATE` confirmada con un intento de Veterinario que
+devuelve `204` pero deja el `estado` intacto (mismo patrón de "bloqueo silencioso" ya
+documentado para otras tablas). En navegador, de punta a punta con la cuenta
+`recepcion@vetcare.local`: crear una cita, cancelarla, ver aparecer sus dos coincidencias
+de lista de espera (una con veterinario específico, otra "cualquiera"), click en "Agendar
+con este cupo" → `NuevaCitaDialog` prellenado con paciente/veterinario/hora correctos →
+cita creada → la entrada correspondiente pasa a "Atendida" (confirmado en la pestaña
+"Todas"). Con `veterinario@vetcare.local`: pestaña "Lista de espera" visible y con datos,
+sin botón "Nueva entrada" ni columna de acciones — solo lectura, tal como exige RN-006/
+la matriz de acceso del Módulo 2. `npm run build` limpio.
