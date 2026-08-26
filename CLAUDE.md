@@ -1469,3 +1469,31 @@ registrar uno sin correo muestra el `Alert` informativo correcto; desde la ficha
 propietario con acceso, "Reenviar acceso" confirma el reenvío. `npm run build` limpio. Datos de
 prueba creados durante la verificación (propietarios/pacientes/cuentas auxiliares) se
 revirtieron después, dejando el seed local (`supabase/seed.sql`) intacto.
+
+**Bug real encontrado por el usuario probando la funcionalidad, no en la verificación
+inicial: el correo de credenciales no decía a qué sitio pertenecía `/portal/ingresar`.**
+El usuario registró un paciente para sí mismo, recibió el correo automático, y al intentar
+ingresar le apareció el error de **personal** ("Tu cuenta no tiene un perfil configurado en
+VetCare", `auth/AuthContext.tsx`) — la separación de identidades personal/portal (Fase 5)
+funcionaba exactamente como debía (una cuenta de portal no tiene fila en `public.usuario`, así
+que el login de personal la rechaza), pero el correo solo decía *"Ingresa desde
+/portal/ingresar"*, una ruta relativa sin dominio, inútil fuera de la aplicación — el
+propietario entró por la URL principal del sitio (login de personal) porque no tenía forma de
+saber que existía una dirección aparte. Corregido en
+`supabase/functions/portal-acceso/index.ts` + `smtp.ts`: la función arma la URL completa a
+partir del header `Origin` de quien la invoca (`${origin}/portal/ingresar` — el mismo origen
+que sirve la SPA, sin necesidad de un secreto nuevo ni de hardcodear un dominio), el correo
+ahora incluye esa URL completa como enlace clicable en el HTML y en texto plano en la versión de
+texto, y se agregó una línea explícita ("este acceso es distinto al que usa el personal de la
+clínica"). Verificado por `curl` con `Origin: http://localhost:5173` explícito y confirmando
+en los logs del edge runtime que el envío no genera errores.
+
+**Nota operativa de esta sesión de depuración:** al limpiar cuentas de prueba propias
+(creadas durante la verificación original) se borró por error, desde `auth.users`, la cuenta
+de portal real que el usuario había creado para sí mismo al reportar este bug (el
+`on delete set null` de la migración de Portal dejó `propietario.id_usuario_portal` en `null`
+silenciosamente). Se detectó a tiempo — antes de borrar también su fila de `propietario` — y se
+recreó el acceso con `accion: 'automatico'` una vez corregido el enlace, así que la cuenta que
+recibió por correo después de esto ya tiene la URL correcta. Patrón a tener presente: antes de
+"limpiar" cualquier fila creada durante una verificación, confirmar primero que no es un dato
+real que el usuario generó por su cuenta mientras reproducía el problema.

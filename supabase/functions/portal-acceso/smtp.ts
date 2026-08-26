@@ -19,6 +19,13 @@ interface CredencialesPortal {
   nombrePropietario: string;
   password: string;
   esNuevaCuenta: boolean;
+  // URL absoluta a /portal/ingresar (deriva del header Origin de quien llama a
+  // la Edge Function -- ver index.ts). Sin esto, el correo solo podia decir la
+  // ruta relativa "/portal/ingresar", sin dominio: el propietario no tenia forma
+  // de saber a que sitio pertenecia esa ruta y terminaba entrando por la URL
+  // principal (login de personal), que rechaza su cuenta de portal con "Tu cuenta
+  // no tiene un perfil configurado" -- bug real encontrado por el usuario.
+  urlPortal: string | null;
 }
 
 export async function enviarCredencialesPortal(datos: CredencialesPortal): Promise<void> {
@@ -51,6 +58,12 @@ export async function enviarCredencialesPortal(datos: CredencialesPortal): Promi
   const introduccion = datos.esNuevaCuenta
     ? 'Se creó tu acceso al Portal del propietario de VetCare.'
     : 'Se generó una nueva contraseña temporal para tu acceso al Portal del propietario de VetCare.';
+  const lineaAcceso = datos.urlPortal
+    ? `Ingresa desde: ${datos.urlPortal}`
+    : 'Pide la dirección del Portal del propietario en la clínica si no la tienes.';
+  const lineaAccesoHtml = datos.urlPortal
+    ? `<p>Ingresa desde <a href="${datos.urlPortal}">${datos.urlPortal}</a>.</p>`
+    : '<p>Pide la dirección del Portal del propietario en la clínica si no la tienes.</p>';
 
   await transporte.sendMail({
     from: remitente,
@@ -63,13 +76,17 @@ ${introduccion}
 Correo:      ${datos.correo}
 Contraseña:  ${datos.password}
 
-Ingresa desde /portal/ingresar y cambia esta contraseña apenas puedas.
+${lineaAcceso}
+Importante: este acceso es distinto al que usa el personal de la clínica -- no
+uses la página principal del sistema, entra por la dirección de arriba.
+Cambia esta contraseña apenas puedas.
 
 Si no reconoces esta solicitud, contacta a la clínica.`,
     html: `<p>Hola ${datos.nombrePropietario},</p>
 <p>${introduccion}</p>
 <p><b>Correo:</b> ${datos.correo}<br/><b>Contraseña:</b> ${datos.password}</p>
-<p>Ingresa desde el Portal del propietario y cambia esta contraseña apenas puedas.</p>
+${lineaAccesoHtml}
+<p><b>Importante:</b> este acceso es distinto al que usa el personal de la clínica — no entres por la página principal del sistema, usa el enlace de arriba. Cambia esta contraseña apenas puedas.</p>
 <p>Si no reconoces esta solicitud, contacta a la clínica.</p>`,
   });
 }
