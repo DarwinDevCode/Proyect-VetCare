@@ -280,22 +280,22 @@ real por cuenta para RLS + navegador con las cuentas de prueba + `npm run build`
 Reportes)/`NuevaFacturaDialog.tsx`/`RegistrarPagoDialog.tsx`. Nuevo:
 `facturacion/ReportesPage.tsx` (envoltorio sobre `ReporteIngresos.tsx`), ruta `/reportes`.
 
-**Fase 2** *(pendiente)* — Nuevo: migraciones 1-3. Modificar: `types/dominio.ts` (campos
+**Fase 2** *(completada)* — Nuevo: migraciones 1-3. Modificar: `types/dominio.ts` (campos
 vitals, `intervalo_dias`, lote/vencimiento, tipos de las 2 vistas nuevas);
 `NuevaConsultaDialog.tsx`, `NuevaVacunacionDialog.tsx`, `historial/api.ts`;
 `NuevoProductoDialog.tsx`, `ProductoDetalleDialog.tsx` (panel Lotes),
 `InventarioPage.tsx` (alerta por vencer), `inventario/api.ts`.
 
-**Fase 3** *(pendiente)* — Nuevo: migración 4; `ListaEsperaTab.tsx`,
+**Fase 3** *(completada)* — Nuevo: migración 4; `ListaEsperaTab.tsx`,
 `NuevaListaEsperaDialog.tsx`, funciones en `agenda/api.ts`. Modificar: `AgendaPage.tsx`,
 `CitaDetalleDialog.tsx`, `types/dominio.ts`.
 
-**Fase 4** *(pendiente)* — Nuevo: migración 5; módulo `modules/compras/` completo
+**Fase 4** *(completada)* — Nuevo: migración 5; módulo `modules/compras/` completo
 (`ComprasPage.tsx`, `ProveedoresTab.tsx`, `OrdenesCompraTab.tsx`, diálogos, `api.ts`); ruta
 `/compras` (`roles: ['administrador']`). Modificar: `InventarioPage.tsx`/
 `ProductoDetalleDialog.tsx` (botón "Generar orden de compra"), `types/dominio.ts`.
 
-**Fase 5** *(pendiente)* — Nuevo: migración 6; `supabase/functions/portal-acceso/index.ts`;
+**Fase 5** *(completada)* — Nuevo: migración 6; `supabase/functions/portal-acceso/index.ts`;
 `frontend/src/portal/` completo (`PortalAuthContext.tsx`, `PortalRutaProtegida.tsx`,
 `PortalApp.tsx`, `PortalLayout.tsx`, `LoginPortalPage.tsx`, páginas de mascotas/citas/
 facturas del propietario, `api.ts` identity-scoped). Modificar: `App.tsx` (rama

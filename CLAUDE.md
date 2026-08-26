@@ -27,6 +27,17 @@ auditoría — funciones que la sección "Fuera del alcance" del SRS excluye exp
 aplicación. Se implementó por instrucción explícita del cliente del proyecto, no por
 reinterpretación propia del SRS. Detalle completo en la sección 13.
 
+El rediseño visual "Organic" (sección 14) amplió el alcance dos veces más, también por
+instrucción explícita del cliente: **Módulo 7 — Compras y Proveedores** (`/compras`,
+exclusivo de Administrador) y **Módulo 8 — Portal del propietario** (`/portal/*`, identidad
+y autenticación completamente separadas de personal — el propietario de la mascota sigue sin
+ser "usuario del sistema" en el sentido de la matriz 3.8 del SRS, pero ahora tiene una cuenta
+propia con acceso de solo lectura a sus mascotas/citas/facturas). Ambos amplían líneas
+explícitas de "Fuera del alcance" (compras y proveedores; portal de autoservicio) — detalle
+completo, incluida la numeración RF/RN/RI nueva, en la sección 14. La Agenda y Citas (Módulo
+2) también ganó una **Lista de espera** (RF-034/RF-035), una ampliación menor que no
+contradice ningún punto de "Fuera del alcance".
+
 Fuente de verdad de requisitos: [`ARTEFACTOS VETCARE/1_ ESPECIFICACIÓN DE REQUISITOS/Especificación de Requisitos de Software.pdf`](ARTEFACTOS%20VETCARE/1_%20ESPECIFICACIÓN%20DE%20REQUISITOS/Especificación%20de%20Requisitos%20de%20Software.pdf)
 (RF-001 a RF-033, RNF-001 a RNF-024, RN-001 a RN-019). Fuente de verdad de base de datos:
 [`ARTEFACTOS VETCARE/5_ MODELOS DE LA BD/VetCare_Diseno_Base_de_Datos.md`](ARTEFACTOS%20VETCARE/5_%20MODELOS%20DE%20LA%20BD/VetCare_Diseno_Base_de_Datos.md).
@@ -60,6 +71,10 @@ Navegador (SPA React + MUI)
 Supabase (BaaS)
    ├─ Auth (gestiona identidad y sesión; RES-03, RNF-003)
    ├─ PostgREST — API REST autogenerada sobre PostgreSQL (RI-007)
+   ├─ Edge Functions — Deno, con la `service_role` key; solo para lo que PostgREST no puede
+   │  hacer (tocar `auth.users`): `admin-usuarios` (Módulo 6), `portal-acceso` (Módulo 8).
+   │  Cada una comprueba el rol de quien llama ella misma, porque al usar `service_role`
+   │  se salta RLS por completo (detalle en secciones 13 y 14).
    └─ PostgreSQL — repositorio único, RLS por rol, triggers para reglas de negocio críticas
 ```
 
@@ -91,16 +106,21 @@ cliente del proyecto.
 SISTEMA VETCARE/
 ├── ARTEFACTOS VETCARE/        # Artefactos de diseño (solo lectura, fuente de verdad)
 ├── CLAUDE.md                  # Este documento
+├── REDISENO-ORGANIC-PLAN.md   # Plan del rediseño Organic (sección 14); fases pendientes
 ├── supabase/                  # Proyecto Supabase CLI
 │   ├── config.toml
 │   ├── migrations/            # Esquema versionado, aplicado con `supabase db reset`/`push`
+│   ├── functions/             # Edge Functions: admin-usuarios, portal-acceso (sección 3)
 │   └── seed.sql                # Catálogos iniciales + usuarios de prueba (solo entorno local)
 └── frontend/                  # SPA React + Vite + TypeScript + MUI
     └── src/
         ├── lib/                # Cliente Supabase, helpers
-        ├── auth/               # Sesión, login, rutas protegidas
+        ├── auth/               # Sesión, login, rutas protegidas (personal)
+        ├── portal/             # Auth y páginas del Portal del propietario (Módulo 8) —
+        │                       # árbol aparte de auth/, no una extensión (sección 14)
         ├── layout/             # Layout con navegación por rol
-        └── modules/            # Un subdirectorio por módulo funcional (1:1 con la ERS)
+        └── modules/            # Un subdirectorio por módulo funcional (1:1 con la ERS
+                                 # para los Módulos 1-5; 6-8 amplían el alcance, sección 1)
 ```
 
 ## 6. Base de datos
