@@ -441,10 +441,10 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 a 4
-  completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); quedan
-  las Fases 5 y 6 (Portal del propietario, Dashboard). No commitear ni desplegar ninguna fase
-  sin haberla verificado por separado — es la condición bajo la que el usuario aprobó el plan.
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 a 5
+  completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); queda
+  la Fase 6 (Dashboard). No commitear ni desplegar ninguna fase sin haberla verificado por
+  separado — es la condición bajo la que el usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -571,6 +571,7 @@ seed contra un proyecto con datos reales de la clínica):
 | recepcion@vetcare.local | VetCare#2026 | recepcionista |
 | veterinario@vetcare.local | VetCare#2026 | veterinario |
 | admin@vetcare.local | VetCare#2026 | administrador |
+| propietario@vetcare.local | VetCare#2026 | portal (Fase 5) — vinculada a María Fernanda Chávez Rodríguez, `/portal/ingresar` |
 
 ## 11. Nota sobre el stack de frontend instalado
 
@@ -1137,3 +1138,125 @@ un producto (precio sugerido automáticamente desde el catálogo), transición
 completa borrador → emitida → recibida desde la UI, y `existencia_actual` de
 Amoxicilina 500mg confirmada en 69 (49 + 20) tras recibir. `npm run build`
 limpio.
+
+### Fase 5 — completada: Portal del propietario (RF-042 a RF-045, Módulo 8 nuevo)
+
+La pieza de mayor riesgo arquitectónico de todo el plan: identidad paralela a la
+de personal, y una modificación real sobre el `EXCLUDE` de solapamiento de citas
+ya aprobado y probado (RN-004). Contradice a propósito el supuesto de fondo de la
+sección 1 ("el propietario no es usuario del sistema") — por instrucción
+explícita del cliente, no por reinterpretación propia del SRS. RN-006 sigue
+intacto también aquí: verificado en cada punto de esta fase que el portal nunca
+expone `consulta` ni `examen_laboratorio`.
+
+- **Migración `portal_propietario`**: `propietario.id_usuario_portal` (nullable,
+  `unique`, `references auth.users`), `fn_propietario_actual()` (análoga a
+  `fn_rol_actual()`, `SECURITY DEFINER`). Sobre `cita`: `id_veterinario` pasa a
+  nullable, `estado` admite `'solicitada'`, y el `EXCLUDE` de solapamiento se
+  recreó (Postgres no permite `ALTER` sobre uno) con
+  `where (estado in ('programada', 'atendida'))` en vez de `<> 'cancelada'` — una
+  `'solicitada'` (siempre sin veterinario) nunca compite por el índice hasta que
+  Recepción la confirma. El nombre real de la restricción
+  (`cita_id_veterinario_tstzrange_excl`) se verificó contra el catálogo
+  (`pg_constraint`) antes de escribir el `DROP`, en vez de asumirlo.
+- **RLS identity-scoped, no basadas en `fn_rol_actual()`**: una cuenta de portal
+  siempre le resuelve `null` a esa función, lo que ya la excluye automáticamente
+  de las ~40 políticas de personal existentes sin tocar ninguna — mismo criterio
+  que la política acotada de `propietario` para RF-031 (sección 9). Políticas
+  nuevas: `propietario_select_portal`, `paciente_select_portal`,
+  `cita_select_portal`, `cita_insert_portal` (exige `estado='solicitada'` e
+  `id_veterinario is null` como literales, no como default — un propietario no
+  puede reservar un cupo real saltándose a Recepción), `factura_select_portal`,
+  `detalle_factura_select_portal`, `pago_select_portal`.
+- **`v_carnet_portal`**: a diferencia de `v_historial_clinico`/`v_estado_factura`/
+  `v_alerta_stock`, **no** lleva `security_invoker = on` — si lo llevara, la RLS
+  de `vacunacion` (staff-only) le devolvería siempre vacío a un propietario. Corre
+  con los privilegios de quien la crea (comportamiento por defecto de una vista) y
+  se auto-acota con `where ... = fn_propietario_actual()`, la misma técnica que
+  una función `SECURITY DEFINER` pero expresada como vista porque no devuelve una
+  única fila. Verificado que para cualquier cuenta de personal simplemente no
+  devuelve filas (`fn_propietario_actual()` da `null`).
+- **Bug real encontrado y corregido, no del diseño de la migración**: el primer
+  `insert` de una solicitud de cita devolvía `23503` (viola
+  `cita_id_usuario_registro_fkey`). `id_usuario_registro` tiene
+  `default auth.uid()`, y ese default se aplica igual para una cuenta de portal
+  — pero una cuenta de portal no tiene fila en `public.usuario`, así que el
+  default produce una FK inválida. Se detectó por `curl` antes de escribir el
+  cliente. Corrección: `frontend/src/portal/api.ts` envía siempre
+  `id_usuario_registro: null` explícito en `crearSolicitudCita` (un valor
+  explícito sobrescribe el default; la columna es nullable). Patrón a tener
+  presente para cualquier tabla futura con un `default auth.uid()` a la que
+  también pueda escribir una identidad sin fila en `usuario`.
+- **RI-008 — Edge Function `portal-acceso`**: segundo caso exacto del patrón de
+  `admin-usuarios` (verifica ella misma que quien llama es `recepcionista`
+  activo, usa la `service_role` key solo después de esa verificación). Antes de
+  poder probarla localmente hubo que reiniciar el stack de Supabase completo
+  (`supabase stop && supabase start`): el contenedor `edge_runtime` había quedado
+  detenido en este entorno (visible en `supabase status` como "Stopped
+  services"), y `supabase db reset` no lo reinicia por sí solo. `grant select,
+  update on public.propietario to service_role` — mismo problema ya documentado
+  en la sección 9 (una tabla existente tocada por primera vez desde
+  `service_role` no hereda el privilegio automáticamente).
+- **`frontend/src/portal/` — árbol completo, deliberadamente separado del de
+  personal**: `PortalAuthContext.tsx` reutiliza el mismo cliente de Supabase
+  (mismo `auth.users`, mismo storage de sesión) que `AuthContext.tsx` de
+  personal — separar el contexto de React alcanza para que las páginas de
+  `/portal/*` nunca lean `sesión`/`rol` de personal, sin necesitar un segundo
+  cliente ni tocar ese modelo (hallazgo de arquitectura #1 del plan). En
+  `App.tsx`, `/portal/*` es una rama de rutas paralela y hermana, no anidada en
+  `RutaProtegida`/`AppLayout` de personal. `PortalLayout.tsx` es deliberadamente
+  más simple que `AppLayout.tsx` (sin `Drawer`, solo tres enlaces) — no vale la
+  pena reproducir esa maquinaria para un menú tan chico. `MascotasPortalPage.tsx`
+  (carnet de vacunas por mascota), `CitasPortalPage.tsx` (listado +
+  `SolicitarCitaDialog.tsx`), `FacturasPortalPage.tsx` (solo lectura, detalle +
+  pagos).
+- **Wiring en `CitaDetalleDialog.tsx`**: una `'solicitada'` muestra "Sin
+  veterinario asignado todavía" en vez de intentar leer `cita.veterinario.nombres`
+  (ahora puede ser `null`) y ofrece "Confirmar"/"Rechazar solicitud" en vez de
+  "Reprogramar"/"Cancelar cita". A diferencia de reprogramar (veterinario fijo,
+  `soloLecturaVeterinario`), confirmar una solicitud **sí** deja elegir
+  veterinario — necesita su propio estado (`idVeterinarioConfirmar`) porque
+  reprogramar y confirmar son casos distintos del mismo componente. El `UPDATE`
+  resultante (`estado='programada'` + veterinario + horario real) es el que
+  activa el `EXCLUDE` para esa fila; `AgendaPage.tsx` agrega un banner
+  "N solicitudes de cita desde el portal" (Recepción) que abre el mismo
+  `CitaDetalleDialog` — las `'solicitada'` no pueden aparecer en `AgendaGrid`
+  (agrupa por veterinario, y todavía no tienen uno).
+- **`FichaDialog.tsx` — botón "Dar acceso al portal"**: solo si
+  `puedeEditar` (Recepcionista) y el propietario todavía no tiene
+  `id_usuario_portal`. **Segundo bug real encontrado y corregido, de UI, no de la
+  migración**: el diálogo (`AccesoPortalDialog.tsx`) mostraba el mensaje de éxito
+  y un instante después volvía en blanco al formulario vacío. Causa: `onEmitido`
+  dispara `onActualizado` en `FichaDialog`, que recarga la ficha y reemplaza el
+  objeto `propietario` por uno nuevo (misma fila, distinta referencia) mientras
+  el diálogo de acceso seguía abierto mostrando el éxito; el `useEffect` de
+  inicialización dependía del objeto `propietario` completo, así que ese nuevo
+  objeto lo volvía a disparar y borraba el estado de éxito recién mostrado. Se
+  detectó reproduciendo el flujo completo en el navegador, no solo por `curl` (la
+  cuenta sí se había creado correctamente; el bug era puramente de UI). Corregido
+  cambiando la dependencia a `propietario?.id_propietario` en vez del objeto
+  completo. Patrón a tener presente: un `useEffect` de "inicializar al abrir" que
+  depende de un objeto (no de su id) se re-dispara con cualquier recarga del
+  padre que reemplace ese objeto por una copia nueva, incluso si nada relevante
+  cambió.
+
+**Verificado** por `curl` con JWT real: `veterinario@vetcare.local` recibe `403`
+invocando `portal-acceso`; `recepcion@vetcare.local` crea la cuenta de portal
+real (no solo vía seed); con el JWT del propietario, `select * from paciente` da
+solo sus mascotas, `consulta`/`examen_laboratorio` dan `[]` (RN-006 intacto),
+`v_carnet_portal` solo trae lo suyo (y `[]` para una cuenta de personal), un
+`insert` de `cita` con `id_veterinario` no nulo o con `id_paciente` ajeno se
+rechaza con `403`, y una solicitud válida se inserta correctamente. Confirmar la
+solicitud asignando veterinario/horario y forzar el mismo horario dos veces
+falla la segunda vez con `23P01` (mensaje ya mapeado). En navegador, de punta a
+punta: `recepcion@vetcare.local` emite el acceso desde la ficha de Toby →
+`propietario@vetcare.local` entra al portal, ve sus dos mascotas, el carnet de
+Toby, factura pagada, y solicita una cita nueva → de vuelta en
+`recepcion@vetcare.local`, el banner de solicitudes pendientes la muestra, se
+confirma asignando a Carlos Veterinario (pasa a "Programada"), y el chequeo de
+disponibilidad en vivo de una segunda cita para el mismo horario/veterinario ya
+la marca ocupada (misma garantía confirmada a nivel de base por `curl`).
+`npm run build` limpio. Sembrada además una 4ª identidad de prueba
+(`propietario@vetcare.local`) en `supabase/seed.sql`, vinculada a María Fernanda
+Chávez Rodríguez, para poder probar el portal en local sin pasar por la Edge
+Function cada vez.

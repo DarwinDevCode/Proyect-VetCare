@@ -20,9 +20,16 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import dayjs, { type Dayjs } from 'dayjs';
 import type { CitaConDetalle, Usuario } from '../../types/dominio';
-import { listarCitasDelDia, listarCitasDeLaSemana, listarVeterinarios, type ListaEsperaConPaciente } from './api';
+import {
+  listarCitasDelDia,
+  listarCitasDeLaSemana,
+  listarSolicitudesPendientes,
+  listarVeterinarios,
+  type ListaEsperaConPaciente,
+} from './api';
 import { mensajeError } from '../../lib/errors';
 import { AgendaGrid } from './AgendaGrid';
 import { AgendaSemanal } from './AgendaSemanal';
@@ -74,6 +81,21 @@ export function AgendaPage() {
   const [prefillNueva, setPrefillNueva] = useState<PrefillNueva | null>(null);
   const [citaSeleccionada, setCitaSeleccionada] = useState<CitaConDetalle | null>(null);
 
+  // RF-043 (Fase 5): solicitudes de cita hechas desde el portal, pendientes de que
+  // Recepcion les asigne veterinario/horario real. No caben en AgendaGrid (agrupa
+  // por veterinario, y una solicitud todavia no tiene uno), asi que se listan aparte.
+  const [solicitudes, setSolicitudes] = useState<CitaConDetalle[]>([]);
+
+  const recargarSolicitudes = useCallback(async () => {
+    if (!puedeGestionar) return;
+    try {
+      setSolicitudes(await listarSolicitudesPendientes());
+    } catch {
+      // Silencioso: no es la carga principal de la pagina, y ya hay un error
+      // general para la agenda si el problema es de conexion.
+    }
+  }, [puedeGestionar]);
+
   const recargar = useCallback(async (f: Dayjs, v: Vista) => {
     setCargando(true);
     setError(null);
@@ -107,6 +129,10 @@ export function AgendaPage() {
     recargar(fecha, vista);
   }, [fecha, vista, recargar]);
 
+  useEffect(() => {
+    recargarSolicitudes();
+  }, [recargarSolicitudes]);
+
   function alternarVeterinario(id: string) {
     setVeterinariosSeleccionados((actual) =>
       actual.includes(id) ? actual.filter((v) => v !== id) : [...actual, id],
@@ -124,7 +150,7 @@ export function AgendaPage() {
   function agendarDesdeListaEspera(entrada: ListaEsperaConPaciente, citaCancelada: CitaConDetalle) {
     setCitaSeleccionada(null);
     abrirNuevaCita({
-      idVeterinario: citaCancelada.id_veterinario,
+      idVeterinario: citaCancelada.id_veterinario ?? undefined,
       hora: dayjs(citaCancelada.fecha_hora_inicio),
       pacienteInicial: entrada.paciente,
       idListaEspera: entrada.id_lista_espera,
@@ -155,6 +181,40 @@ export function AgendaPage() {
           </Button>
         )}
       </Stack>
+
+      {solicitudes.length > 0 && (
+        <Alert
+          severity="warning"
+          icon={<EventBusyIcon />}
+          sx={{ mb: 2 }}
+          action={
+            solicitudes.length === 1 ? (
+              <Button color="inherit" size="small" onClick={() => setCitaSeleccionada(solicitudes[0])}>
+                Ver
+              </Button>
+            ) : undefined
+          }
+        >
+          <Stack spacing={0.5}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {solicitudes.length} solicitud{solicitudes.length === 1 ? '' : 'es'} de cita desde el portal,
+              pendiente{solicitudes.length === 1 ? '' : 's'} de confirmar.
+            </Typography>
+            {solicitudes.length > 1 &&
+              solicitudes.map((s) => (
+                <Typography
+                  key={s.id_cita}
+                  variant="body2"
+                  sx={{ cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={() => setCitaSeleccionada(s)}
+                >
+                  {s.paciente.nombre} ({s.paciente.propietario.nombres} {s.paciente.propietario.apellidos}) —{' '}
+                  {dayjs(s.fecha_hora_inicio).format('DD/MM/YYYY')}
+                </Typography>
+              ))}
+          </Stack>
+        </Alert>
+      )}
 
       <Tabs
         value={seccion}
@@ -301,7 +361,10 @@ export function AgendaPage() {
         veterinarios={veterinarios}
         puedeGestionar={puedeGestionar}
         onCerrar={() => setCitaSeleccionada(null)}
-        onActualizado={() => recargar(fecha, vista)}
+        onActualizado={() => {
+          recargar(fecha, vista);
+          recargarSolicitudes();
+        }}
         onAgendarDesdeListaEspera={agendarDesdeListaEspera}
       />
     </Box>

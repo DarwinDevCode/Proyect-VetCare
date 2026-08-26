@@ -39,6 +39,13 @@ join (values
 -- 3. Usuarios de demostracion -- SOLO ENTORNO LOCAL DE DESARROLLO.
 -- Credenciales documentadas en CLAUDE.md. Un entorno real se puebla siguiendo
 -- el procedimiento de "Roles y permisos" de CLAUDE.md (API admin de GoTrue).
+--
+-- La 4a identidad (v_propietario) es de portal, no de personal (Fase 5): se crea
+-- el auth.users/identities aqui igual que las otras tres, pero NO se inserta en
+-- public.usuario -- esa tabla es solo de personal. Su vinculo real
+-- (propietario.id_usuario_portal) se completa mas abajo, en la seccion 4.1,
+-- cuando el propietario al que se vincula ya existe. Permite probar RLS de
+-- portal en local sin pasar por la Edge Function portal-acceso cada vez.
 -- ============================================================================
 do $$
 declare
@@ -47,6 +54,7 @@ declare
   v_recepcion   uuid := '00000000-0000-0000-0000-000000000001';
   v_veterinario uuid := '00000000-0000-0000-0000-000000000002';
   v_admin       uuid := '00000000-0000-0000-0000-000000000003';
+  v_propietario uuid := '00000000-0000-0000-0000-000000000004';
 begin
   -- confirmation_token/recovery_token/email_change_token_new/email_change no tienen
   -- default en el esquema de GoTrue y su driver no acepta NULL al leerlos de vuelta;
@@ -58,14 +66,16 @@ begin
   ) values
     (v_instance_id, v_recepcion, 'authenticated', 'authenticated', 'recepcion@vetcare.local', v_password, now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', ''),
     (v_instance_id, v_veterinario, 'authenticated', 'authenticated', 'veterinario@vetcare.local', v_password, now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', ''),
-    (v_instance_id, v_admin, 'authenticated', 'authenticated', 'admin@vetcare.local', v_password, now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', '');
+    (v_instance_id, v_admin, 'authenticated', 'authenticated', 'admin@vetcare.local', v_password, now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', ''),
+    (v_instance_id, v_propietario, 'authenticated', 'authenticated', 'propietario@vetcare.local', v_password, now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', '');
 
   insert into auth.identities (
     id, provider_id, user_id, identity_data, provider, created_at, updated_at
   ) values
     (gen_random_uuid(), v_recepcion::text, v_recepcion, jsonb_build_object('sub', v_recepcion::text, 'email', 'recepcion@vetcare.local'), 'email', now(), now()),
     (gen_random_uuid(), v_veterinario::text, v_veterinario, jsonb_build_object('sub', v_veterinario::text, 'email', 'veterinario@vetcare.local'), 'email', now(), now()),
-    (gen_random_uuid(), v_admin::text, v_admin, jsonb_build_object('sub', v_admin::text, 'email', 'admin@vetcare.local'), 'email', now(), now());
+    (gen_random_uuid(), v_admin::text, v_admin, jsonb_build_object('sub', v_admin::text, 'email', 'admin@vetcare.local'), 'email', now(), now()),
+    (gen_random_uuid(), v_propietario::text, v_propietario, jsonb_build_object('sub', v_propietario::text, 'email', 'propietario@vetcare.local'), 'email', now(), now());
 
   insert into public.usuario (id_usuario, id_rol, nombres, apellidos, correo)
   select v_recepcion, id_rol, 'Ana', 'Recepción', 'recepcion@vetcare.local' from public.rol where codigo = 'recepcionista'
@@ -118,8 +128,10 @@ begin
   -- --------------------------------------------------------------------------
   -- 4.1 Propietarios (Modulo 1). Cedulas ecuatorianas ficticias (10 digitos).
   -- --------------------------------------------------------------------------
-  insert into public.propietario (identificacion, nombres, apellidos, telefono, correo, direccion)
-    values ('1712345678', 'María Fernanda', 'Chávez Rodríguez', '0991234567', 'maria.chavez@gmail.com', 'Av. Amazonas N34-56, Quito')
+  -- id_usuario_portal vincula a la 4a identidad de la seccion 3 (Fase 5) -- este
+  -- es el unico propietario del seed con acceso al portal ya activo.
+  insert into public.propietario (identificacion, nombres, apellidos, telefono, correo, direccion, id_usuario_portal)
+    values ('1712345678', 'María Fernanda', 'Chávez Rodríguez', '0991234567', 'maria.chavez@gmail.com', 'Av. Amazonas N34-56, Quito', '00000000-0000-0000-0000-000000000004')
     returning id_propietario into v_p1;
   insert into public.propietario (identificacion, nombres, apellidos, telefono, correo, direccion)
     values ('1723456789', 'Jorge Luis', 'Torres Vega', '0987654321', 'jorge.torres@hotmail.com', 'Calle Los Cerezos 123, Quito')

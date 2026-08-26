@@ -1,7 +1,7 @@
 # Rediseño completo de VetCare — plan de implementación
 
-> **Estado (2026-08-26):** Fases 0, 1 (1a-1e), 2, 3 y 4 **completadas**. Fases 5-6
-> **aprobadas, sin empezar**. Este documento es el plan de implementación completo,
+> **Estado (2026-08-26):** Fases 0, 1 (1a-1e), 2, 3, 4 y 5 **completadas**. Fase 6
+> **aprobada, sin empezar**. Este documento es el plan de implementación completo,
 > tal como se aprobó con el cliente antes de escribir código (sección "Fases de ejecución"
 > actualizada con el estado real de cada fase). El detalle de *qué* se hizo exactamente en
 > cada fase completada, con decisiones tomadas durante la implementación y desviaciones del
@@ -209,8 +209,8 @@ CLAUDE.md sección 14 para el detalle real de lo implementado:
 | **2** | Migraciones 1-3 (vitals, próxima dosis, lotes/vencimiento) + UI en los diálogos existentes de Historial e Inventario. | ✅ **Completada** — detalle real y una desviación deliberada (`v_historial_clinico` sí se tocó) en CLAUDE.md §14. |
 | **3** | Migración 4 (lista de espera) + UI dentro de Agenda (1h, wiring en 1i). | ✅ **Completada** — detalle real en CLAUDE.md §14. |
 | **4** | Migración 5 (Compras y Proveedores) + módulo `modules/compras/` completo. | ✅ **Completada** — detalle real en CLAUDE.md §14. |
-| **5** | Migración 6 (Portal) + Edge Function `portal-acceso` + `frontend/src/portal/*` completo + botón "Dar acceso al portal" en Pacientes. | ⬜ Pendiente — siguiente fase a ejecutar (la de mayor riesgo arquitectónico). |
-| **6** | Dashboard real (1a): KPIs, agenda del día, accesos rápidos. | ⬜ Pendiente. |
+| **5** | Migración 6 (Portal) + Edge Function `portal-acceso` + `frontend/src/portal/*` completo + botón "Dar acceso al portal" en Pacientes. | ✅ **Completada** — la de mayor riesgo arquitectónico del plan. Detalle real (con dos bugs reales encontrados y corregidos) en CLAUDE.md §14. |
+| **6** | Dashboard real (1a): KPIs, agenda del día, accesos rápidos. | ⬜ Pendiente — siguiente fase a ejecutar (última del plan). |
 
 Razón del orden (por qué cada fase depende de la anterior):
 
@@ -310,14 +310,10 @@ facturas del propietario, `api.ts` identity-scoped). Modificar: `App.tsx` (rama
 
 ## Siguiente paso
 
-Con Fases 0 a 4 completas y verificadas, la **Fase 5** arranca con:
-`npx supabase migration new portal_propietario` (columna `propietario.id_usuario_portal`,
-`fn_propietario_actual()`, `cita.id_veterinario` nullable + `estado` con `'solicitada'` +
-recrear el `EXCLUDE` de solapamiento con el `where` acotado, políticas RLS identity-scoped,
-vista `v_carnet_portal`), la Edge Function `supabase/functions/portal-acceso/index.ts`, y el
-árbol `frontend/src/portal/*` completo con su propio `PortalAuthContext`. Es la pieza de
-mayor riesgo arquitectónico de todo el plan (ver "Dos hallazgos de arquitectura" al
-principio de este documento) — implementar con especial cuidado de no tocar el modelo de
-rol/RLS del que dependen las ~45 políticas de staff ya existentes. Se commitea y se verifica
-sola antes de seguir con la Fase 6 — mismo ritmo por fases con revisión entre cada una, por
-pedido explícito del cliente.
+Con Fases 0 a 5 completas y verificadas, la **Fase 6** (última del plan) arranca con:
+`modules/dashboard/DashboardPage.tsx` + `api.ts` (agregaciones cliente-side sobre
+`cita`/`pago`/`v_alerta_stock`/`lista_espera`, todas sobre tablas/vistas ya existentes —
+sin migración nueva), modificar `App.tsx` (`InicioPorRol` renderiza el dashboard en vez de
+redirigir) y `modulos.ts` (activar la entrada "Dashboard", pospuesta desde la Fase 0 por el
+problema de resaltado de `ruta: '/'` documentado en CLAUDE.md §14, Fase 0). Se commitea y se
+verifica sola — con esta fase se cierra el plan completo.

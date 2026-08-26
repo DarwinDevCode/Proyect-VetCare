@@ -80,9 +80,12 @@ export function AgendaGrid({ fecha, veterinarios, citas, puedeCrear, onClickSlot
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esHoy, fecha, horaInicio]);
 
+  // 'solicitada' (Fase 5) nunca tiene veterinario todavia -- se excluye del grid
+  // (agrupado por veterinario) y se muestra aparte en AgendaPage.
   const citasPorVeterinario = useMemo(() => {
     const mapa = new Map<string, CitaConDetalle[]>();
     for (const c of citas) {
+      if (!c.id_veterinario) continue;
       if (!mapa.has(c.id_veterinario)) mapa.set(c.id_veterinario, []);
       mapa.get(c.id_veterinario)!.push(c);
     }
