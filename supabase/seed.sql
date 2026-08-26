@@ -481,3 +481,426 @@ begin
   insert into public.cita (id_paciente, id_veterinario, fecha_hora_inicio, duracion_minutos, motivo, estado, id_usuario_registro)
     values (v_m2, null, '2026-08-30 10:00:00-05', 30, 'Misha no ha querido comer en dos días', 'solicitada', null);
 end $$;
+
+-- ============================================================================
+-- 5. Volumen de datos demo ampliado -- pedido explicito del cliente: entre 20
+-- y 40 filas por entidad (10-15 en parametro_sistema), no solo un puñado de
+-- casos de borde. A esta escala ya no es practico escribir cada fila a mano
+-- como en la seccion 4 (ahi cada propietario/paciente es parte de una
+-- narrativa especifica -- y algunas, como Toby/Rocky/propietario 6, las
+-- referencian pruebas pgTAP/Deno por su id; esta seccion nunca las toca, solo
+-- agrega filas nuevas despues). Se genera con bucles sobre listas de nombres y
+-- plantillas de texto realistas en vez de literales uno por uno. Los mismos
+-- triggers de reglas de negocio se disparan igual que si viniera de la app
+-- (fn_actualizar_existencia, fn_vacunacion_descuenta_inventario,
+-- fn_calcular_fin_cita, fn_asignar_numero_factura, fn_recibir_orden_compra).
+-- ============================================================================
+do $$
+declare
+  v_recepcion   uuid := '00000000-0000-0000-0000-000000000001';
+  v_veterinario uuid := '00000000-0000-0000-0000-000000000002';
+  v_admin       uuid := '00000000-0000-0000-0000-000000000003';
+
+  v_nombres   text[] := array['Mateo','Valentina','Sebastián','Camila','Emilio','Isabella','Nicolás','Sofía','Adrián','Martina','Joaquín','Renata','Emiliano','Antonella','Santiago','Doménica','Leonardo','Mía','Rafael','Julieta','Maximiliano','Ariana','Benjamín','Victoria'];
+  v_apellidos text[] := array['Vásconez','Andrade','Cevallos','Moreta','Salazar','Yépez','Naranjo','Villacís','Cazorla','Guerrero','Toapanta','Freire','Zambrano','Barrionuevo','Espinosa','Montenegro','Reyes','Cárdenas','Aguilar','Bermeo','Chiluisa','Loachamín','Puma','Sarmiento'];
+  v_mascotas  text[] := array['Zeus','Milo','Nina','Draco','Kira','Pipo','Maya','Boby','Canela','Duke','Lola','Jack','Bruna','Oreo','Sultán','Perla','Rocco','Chispa','Fido','Kiwi','Estrella','Bruno','Mimi','Princesa'];
+  v_colores   text[] := array['Negro','Blanco','Café','Atigrado','Dorado','Gris','Manchado','Tricolor','Crema','Naranja'];
+  v_dominios  text[] := array['@gmail.com','@hotmail.com','@outlook.com'];
+
+  v_motivo      text[] := array['Vacunación de refuerzo anual','Control de rutina','Pulgas y garrapatas','Diarrea de 2 días de evolución','Cojera leve en pata delantera','Revisión dental, mal aliento','Estornudos y secreción nasal','Chequeo previo a esterilización','Picazón y enrojecimiento en la piel','Bajo apetito y decaimiento leve'];
+  v_hallazgos   text[] := array['Buen estado general, sin hallazgos relevantes.','Leve enrojecimiento en el oído externo.','Mucosas rosadas, hidratación adecuada.','Abdomen ligeramente sensible a la palpación.','Dolor leve al manipular la extremidad afectada.','Sarro moderado, gingivitis leve.','Secreción nasal serosa, sin fiebre.','Sin hallazgos que contraindiquen el procedimiento.','Eritema y pequeñas costras en el dorso.','Alerta, sin signos de dolor agudo.'];
+  v_diagnostico text[] := array['Paciente sano, apto para el procedimiento.','Otitis externa leve.','Gastroenteritis leve, probable indiscreción alimentaria.','Sospecha de esguince leve.','Enfermedad periodontal grado I.','Rinitis viral leve.','Dermatitis alérgica leve.','Sin alteraciones significativas.','Infestación leve de ectoparásitos.','Cuadro compatible con estrés/cambio de ambiente.'];
+  v_tratamiento text[] := array['Se aplica vacuna correspondiente, control en un año.','Limpieza ótica y gotas por 7 días.','Dieta blanda por 48 horas, control si no mejora.','Reposo relativo, antiinflamatorio por 5 días.','Limpieza dental programada, cepillado en casa.','Se indica descongestionante y control en una semana.','Antihistamínico y champú medicado.','Ninguno, control en 6 meses.','Aplicación de antiparasitario tópico.','Observación en casa, dieta habitual.'];
+  v_examenes    text[] := array['Hemograma completo','Perfil bioquímico','Radiografía de tórax','Ecografía abdominal','Urianálisis','Coprológico','Citología ótica','Raspado de piel'];
+  v_espera_motivo text[] := array['Pide la primera cita disponible','Seguimiento de tratamiento en curso','No pudo agendar en la fecha original','Solicitud de control post-quirúrgico','Consulta por segunda opinión'];
+
+  v_prop_ids     bigint[] := array[]::bigint[];
+  v_pac_ids      bigint[] := array[]::bigint[];
+  v_consulta_ids bigint[] := array[]::bigint[];
+  v_prov_ids     bigint[];
+
+  v_id_canino  smallint := (select id_especie from public.especie where nombre = 'Canino');
+  v_id_felino  smallint := (select id_especie from public.especie where nombre = 'Felino');
+  v_id_ave     smallint := (select id_especie from public.especie where nombre = 'Ave');
+  v_id_conejo  smallint := (select id_especie from public.especie where nombre = 'Conejo');
+
+  i int;
+  v_id bigint;
+  v_cita_id bigint;
+  v_consulta_id bigint;
+  v_especie smallint;
+  v_raza integer;
+  v_fecha_cita timestamptz;
+  v_idx int;
+  v_estado_final varchar(10);
+  v_oc_id bigint;
+begin
+  -- --------------------------------------------------------------------------
+  -- 5.1 Propietarios adicionales (22, total 30 con los de la seccion 4).
+  -- --------------------------------------------------------------------------
+  for i in 1..22 loop
+    insert into public.propietario (identificacion, nombres, apellidos, telefono, correo, direccion)
+    values (
+      '19' || lpad(i::text, 8, '0'),
+      v_nombres[1 + (i % array_length(v_nombres, 1))],
+      v_apellidos[1 + ((i * 7) % array_length(v_apellidos, 1))],
+      '099' || lpad((1000000 + i)::text, 7, '0'),
+      'propietario' || i || v_dominios[1 + (i % array_length(v_dominios, 1))],
+      'Sector ' || v_apellidos[1 + ((i * 3) % array_length(v_apellidos, 1))] || ', Quito'
+    )
+    returning id_propietario into v_id;
+    v_prop_ids := array_append(v_prop_ids, v_id);
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.2 Pacientes adicionales (23, total 35). Repartidos entre los nuevos
+  -- propietarios; fecha_nacimiento nula cada 9no (edad desconocida, RF-010).
+  -- --------------------------------------------------------------------------
+  for i in 1..23 loop
+    v_especie := (array[v_id_canino, v_id_felino, v_id_canino, v_id_felino, v_id_ave, v_id_conejo])[1 + (i % 6)];
+    select id_raza into v_raza from public.raza where id_especie = v_especie order by random() limit 1;
+    insert into public.paciente (id_propietario, id_especie, id_raza, nombre, sexo, fecha_nacimiento, color)
+    values (
+      v_prop_ids[1 + (i % array_length(v_prop_ids, 1))],
+      v_especie,
+      v_raza,
+      v_mascotas[1 + ((i * 5) % array_length(v_mascotas, 1))],
+      case when i % 2 = 0 then 'M' else 'H' end,
+      case when i % 9 = 0 then null else (current_date - ((5 + i * 37) || ' days')::interval)::date end,
+      v_colores[1 + ((i * 2) % array_length(v_colores, 1))]
+    )
+    returning id_paciente into v_id;
+    v_pac_ids := array_append(v_pac_ids, v_id);
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.3 Catalogo de productos ampliado (13 mas, total 25) + su ingreso inicial.
+  -- --------------------------------------------------------------------------
+  insert into public.producto (codigo, nombre, tipo, presentacion, unidad_medida, nivel_minimo, precio_unitario, intervalo_dias) values
+    ('MED-006', 'Cefalexina 500mg', 'medicamento', 'Caja x20 tabletas', 'caja', 8, 9.20, null),
+    ('MED-007', 'Prednisolona 5mg', 'medicamento', 'Frasco x30 tabletas', 'frasco', 6, 7.50, null),
+    ('MED-008', 'Omeprazol 20mg', 'medicamento', 'Caja x14 cápsulas', 'caja', 5, 6.80, null),
+    ('MED-009', 'Furosemida 40mg', 'medicamento', 'Caja x20 tabletas', 'caja', 5, 5.40, null),
+    ('MED-010', 'Tramadol 50mg', 'medicamento', 'Ampolla 2ml', 'ampolla', 10, 2.60, null),
+    ('MED-011', 'Multivitamínico', 'medicamento', 'Frasco 100ml', 'frasco', 8, 8.00, null),
+    ('INS-005', 'Vendaje elástico', 'insumo', 'Rollo 5cm', 'unidad', 20, 1.30, null),
+    ('INS-006', 'Alcohol antiséptico', 'insumo', 'Frasco 250ml', 'frasco', 15, 2.10, null),
+    ('INS-007', 'Termómetro digital', 'insumo', null, 'unidad', 5, 6.00, null),
+    ('INS-008', 'Sonda urinaria', 'insumo', null, 'unidad', 10, 3.50, null),
+    ('VAC-004', 'Vacuna Leucemia felina', 'vacuna', null, 'dosis', 6, 19.50, 365),
+    ('VAC-005', 'Vacuna Tos de las perreras', 'vacuna', null, 'dosis', 8, 14.00, 180),
+    ('VAC-006', 'Vacuna Parvovirus', 'vacuna', null, 'dosis', 6, 17.00, 365);
+
+  insert into public.movimiento_inventario (id_producto, tipo_movimiento, cantidad, fecha_hora, id_usuario, observacion, lote_codigo, fecha_vencimiento)
+  select id_producto, 'ingreso', (10 + (id_producto * 3) % 40), now() - interval '20 days', v_admin,
+         'Compra inicial a proveedor', 'LT-' || id_producto, current_date + interval '400 days'
+  from public.producto
+  where codigo in ('MED-006','MED-007','MED-008','MED-009','MED-010','MED-011','INS-005','INS-006','INS-007','INS-008','VAC-004','VAC-005','VAC-006');
+
+  -- --------------------------------------------------------------------------
+  -- 5.4 Proveedores adicionales (17 mas, total 20).
+  -- --------------------------------------------------------------------------
+  insert into public.proveedor (nombre, identificacion, telefono, correo, direccion) values
+    ('Veterinaria Insumos del Pacífico', '1793456780001', '042345678', 'contacto@vip.com.ec', 'Vía a la Costa, Guayaquil'),
+    ('BioFarma Andina', '1794567891001', '032345678', 'ventas@biofarma.ec', 'Av. Universitaria, Ambato'),
+    ('MedVet Suministros', '1795678902001', '072345678', null, 'Calle Larga, Cuenca'),
+    ('Agropecuaria El Establo', '1796789013001', '062345678', 'info@elestablo.ec', 'Panamericana Norte km 5, Ibarra'),
+    ('Distribuidora Salud Animal', '1797890124001', '022998877', 'pedidos@saludanimal.ec', 'Av. 10 de Agosto, Quito'),
+    ('VetSupply Ecuador', '1798901235001', '023998877', 'ventas@vetsupply.ec', 'Sector Carcelén, Quito'),
+    ('Laboratorios ProVet', '1799012346001', '042998877', 'contacto@provet.ec', 'Km 8.5 vía Daule, Guayaquil'),
+    ('Importadora Veterinaria del Sur', '1780123457001', '072998877', null, 'Av. Solano, Cuenca'),
+    ('NutriVet Alimentos y Suministros', '1781234568001', '023112233', 'contacto@nutrivet.ec', 'Av. Maldonado, Quito'),
+    ('Corporación Farmavet Internacional', '1782345679001', '042112233', 'importaciones@farmavet-intl.com', 'Zona Franca, Guayaquil'),
+    ('Grupo Insumos Médicos GIM', '1783456780001', '023223344', null, 'Av. 6 de Diciembre, Quito'),
+    ('Vetpharma Cía. Ltda.', '1784567891001', '032223344', 'ventas@vetpharma.ec', 'Av. Cevallos, Ambato'),
+    ('Distribuidora Central de Fármacos', '1785678902001', '022334455', 'pedidos@dcf.ec', 'Centro Histórico, Quito'),
+    ('Salud Animal del Norte', '1786789013001', '062334455', null, 'Av. Teodoro Gómez, Ibarra'),
+    ('Comercial Veterinaria Austro', '1787890124001', '072334455', 'ventas@austrovet.ec', 'Av. Remigio Crespo, Cuenca'),
+    ('Importadora BioSalud', '1788901235001', '023445566', 'contacto@biosalud.ec', 'Av. Amazonas, Quito'),
+    ('Suministros Clínicos Veterinarios SCV', '1789012346001', '023556677', null, 'Av. Naciones Unidas, Quito');
+
+  select array_agg(id_proveedor) into v_prov_ids from public.proveedor;
+
+  -- --------------------------------------------------------------------------
+  -- 5.5 Citas atendidas adicionales (12, en julio 2026 para no chocar con las
+  -- fechas de agosto de la seccion 4) + su consulta correspondiente, y cada
+  -- 3ra con una vacunacion, cada 4ta con un examen, cada 2da con un consumo
+  -- manual de producto (RF-023) -- para no repetir siempre el mismo patron.
+  -- --------------------------------------------------------------------------
+  for i in 1..12 loop
+    -- timestamp + time no es un operador valido en Postgres -- se arma como
+    -- texto 'YYYY-MM-DD HH:MI:00-05' y se castea a timestamptz, mismo patron
+    -- que los literales de la seccion 4.
+    v_fecha_cita := (to_char(date '2026-07-01' + (i * 2), 'YYYY-MM-DD') || ' ' ||
+      (array['08:30','09:00','10:00','11:00','14:00','15:00','16:00'])[1 + (i % 7)] || ':00-05')::timestamptz;
+
+    insert into public.cita (id_paciente, id_veterinario, fecha_hora_inicio, duracion_minutos, motivo, estado, id_usuario_registro)
+    values (
+      v_pac_ids[1 + (i % array_length(v_pac_ids, 1))],
+      v_veterinario,
+      v_fecha_cita,
+      (array[20, 30, 30, 45])[1 + (i % 4)],
+      v_motivo[1 + (i % array_length(v_motivo, 1))],
+      'atendida',
+      v_recepcion
+    )
+    returning id_cita into v_cita_id;
+
+    v_idx := 1 + (i % array_length(v_motivo, 1));
+    insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg)
+    values (
+      v_pac_ids[1 + (i % array_length(v_pac_ids, 1))],
+      v_veterinario,
+      v_cita_id,
+      v_fecha_cita,
+      v_motivo[v_idx],
+      v_hallazgos[v_idx],
+      v_diagnostico[v_idx],
+      v_tratamiento[v_idx],
+      round((2 + (i * 3.7))::numeric, 1)
+    )
+    returning id_consulta into v_consulta_id;
+    v_consulta_ids := array_append(v_consulta_ids, v_consulta_id);
+
+    if i % 3 = 0 then
+      insert into public.vacunacion (id_paciente, id_veterinario, id_producto, id_consulta, fecha_aplicacion, dosis, lote)
+      values (
+        v_pac_ids[1 + (i % array_length(v_pac_ids, 1))],
+        v_veterinario,
+        (select id_producto from public.producto where codigo = (array['VAC-001','VAC-002','VAC-004','VAC-005','VAC-006'])[1 + (i % 5)]),
+        v_consulta_id,
+        v_fecha_cita::date,
+        1,
+        'LT-' || i
+      );
+    end if;
+
+    if i % 4 = 0 then
+      insert into public.examen_laboratorio (id_paciente, id_veterinario, id_consulta, tipo_examen, fecha_solicitud, fecha_resultado, resultado, observacion)
+      values (
+        v_pac_ids[1 + (i % array_length(v_pac_ids, 1))],
+        v_veterinario,
+        v_consulta_id,
+        v_examenes[1 + (i % array_length(v_examenes, 1))],
+        v_fecha_cita::date,
+        v_fecha_cita::date + 1,
+        'Resultado dentro de parámetros normales.',
+        null
+      );
+    else
+      insert into public.examen_laboratorio (id_paciente, id_veterinario, id_consulta, tipo_examen, fecha_solicitud, observacion)
+      values (
+        v_pac_ids[1 + (i % array_length(v_pac_ids, 1))],
+        v_veterinario,
+        v_consulta_id,
+        v_examenes[1 + ((i + 2) % array_length(v_examenes, 1))],
+        v_fecha_cita::date,
+        'Pendiente de resultado'
+      );
+    end if;
+
+    if i % 2 = 0 then
+      insert into public.movimiento_inventario (id_producto, tipo_movimiento, cantidad, fecha_hora, id_usuario, id_consulta, observacion)
+      values (
+        (select id_producto from public.producto where codigo = (array['MED-001','MED-002','MED-006','MED-007','INS-001'])[1 + (i % 5)]),
+        'consumo', -1, v_fecha_cita + interval '15 minutes', v_veterinario, v_consulta_id, 'Consumo durante la atención'
+      );
+    end if;
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.6 Consultas adicionales sin cita previa (6, total 25 con la seccion 4 y
+  -- la 5.5), atencion no programada -- mismo patron que v_q6/v_q7.
+  -- --------------------------------------------------------------------------
+  for i in 1..6 loop
+    v_idx := 1 + ((i + 5) % array_length(v_motivo, 1));
+    v_fecha_cita := (to_char(date '2026-07-05' + (i * 3), 'YYYY-MM-DD') || ' 17:00:00-05')::timestamptz;
+    insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg)
+    values (
+      v_pac_ids[1 + ((i + 10) % array_length(v_pac_ids, 1))],
+      v_veterinario,
+      null,
+      v_fecha_cita,
+      v_motivo[v_idx],
+      v_hallazgos[v_idx],
+      v_diagnostico[v_idx],
+      v_tratamiento[v_idx],
+      round((3 + (i * 2.3))::numeric, 1)
+    )
+    returning id_consulta into v_consulta_id;
+    v_consulta_ids := array_append(v_consulta_ids, v_consulta_id);
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.7 Vacunaciones independientes adicionales (11 mas, total 20 con las de
+  -- la seccion 4 y las de 5.5). Se excluye VAC-003 (Vacuna Triple felina) a
+  -- proposito -- esta por debajo de su minimo desde la seccion 4 y es la
+  -- alerta de RF-026 que el seed deja activa; vacunar mas la ocultaria.
+  -- --------------------------------------------------------------------------
+  for i in 1..11 loop
+    insert into public.vacunacion (id_paciente, id_veterinario, id_producto, id_consulta, fecha_aplicacion, dosis, lote)
+    values (
+      v_pac_ids[1 + ((i * 3) % array_length(v_pac_ids, 1))],
+      v_veterinario,
+      (select id_producto from public.producto where codigo = (array['VAC-001','VAC-002','VAC-004','VAC-005','VAC-006'])[1 + (i % 5)]),
+      null,
+      (current_date - ((i * 11) || ' days')::interval)::date,
+      1,
+      'LT-IND-' || i
+    );
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.8 Examenes de laboratorio independientes adicionales (12 mas, total ~20
+  -- con los de la seccion 4 y los de 5.5), sin consulta asociada.
+  -- --------------------------------------------------------------------------
+  for i in 1..12 loop
+    if i % 3 = 0 then
+      insert into public.examen_laboratorio (id_paciente, id_veterinario, id_consulta, tipo_examen, fecha_solicitud, fecha_resultado, resultado, observacion)
+      values (
+        v_pac_ids[1 + ((i + 4) % array_length(v_pac_ids, 1))],
+        v_veterinario, null,
+        v_examenes[1 + (i % array_length(v_examenes, 1))],
+        (current_date - ((i * 6) || ' days')::interval)::date,
+        (current_date - ((i * 6 - 1) || ' days')::interval)::date,
+        'Sin hallazgos patológicos relevantes.',
+        null
+      );
+    else
+      insert into public.examen_laboratorio (id_paciente, id_veterinario, id_consulta, tipo_examen, fecha_solicitud, observacion)
+      values (
+        v_pac_ids[1 + ((i + 4) % array_length(v_pac_ids, 1))],
+        v_veterinario, null,
+        v_examenes[1 + ((i + 3) % array_length(v_examenes, 1))],
+        (current_date - ((i * 6) || ' days')::interval)::date,
+        'Pendiente de resultado'
+      );
+    end if;
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.9 Facturas adicionales (19 mas, total 25): 15 sobre las consultas
+  -- nuevas de 5.5/5.6, 1 sobre v_q7 (unica consulta de la seccion 4 que
+  -- seguia sin facturar) y 3 de servicio suelto sin atencion asociada.
+  -- Situaciones de cobro variadas, igual criterio que la seccion 4.
+  -- --------------------------------------------------------------------------
+  for i in 1..15 loop
+    insert into public.factura (id_propietario, id_consulta, fecha_emision, id_usuario_emisor)
+    values (
+      (select p.id_propietario from public.consulta c join public.paciente p on p.id_paciente = c.id_paciente where c.id_consulta = v_consulta_ids[i]),
+      v_consulta_ids[i],
+      (select fecha_hora from public.consulta where id_consulta = v_consulta_ids[i]) + interval '20 minutes',
+      v_recepcion
+    )
+    returning id_factura into v_id;
+    insert into public.detalle_factura (id_factura, numero_linea, id_producto, descripcion, cantidad, precio_unitario)
+    select v_id, 1, p.id_producto, p.nombre, 1, p.precio_unitario
+    from public.producto p where p.codigo = (array['MED-001','MED-002','MED-003','INS-001','INS-002','VAC-001'])[1 + (i % 6)];
+    update public.factura set impuesto = round(subtotal * 0.15, 2) where id_factura = v_id;
+
+    if i % 5 = 0 then
+      null; -- cada 5ta queda pendiente, sin pago -- variedad de estado_cobro
+    elsif i % 5 = 1 then
+      insert into public.pago (id_factura, fecha_pago, monto, forma_pago, id_usuario)
+      values (v_id, (select fecha_emision from public.factura where id_factura = v_id) + interval '10 minutes',
+        round((select total from public.factura where id_factura = v_id) * 0.5, 2), 'efectivo', v_recepcion); -- pago parcial
+    else
+      insert into public.pago (id_factura, fecha_pago, monto, forma_pago, id_usuario)
+      values (v_id, (select fecha_emision from public.factura where id_factura = v_id) + interval '10 minutes',
+        (select total from public.factura where id_factura = v_id),
+        (array['efectivo','tarjeta','transferencia'])[1 + (i % 3)], v_recepcion);
+    end if;
+  end loop;
+
+  -- Factura sobre v_q7 (Kiara, seccion 4 -- la unica consulta que quedo sin
+  -- facturar ahi). Se recupera por fecha/motivo, no por variable: v_q7 no es
+  -- visible en este bloque nuevo, es local al bloque DO de la seccion 4.
+  insert into public.factura (id_propietario, id_consulta, fecha_emision, id_usuario_emisor)
+  select p.id_propietario, c.id_consulta, c.fecha_hora + interval '20 minutes', v_recepcion
+  from public.consulta c join public.paciente p on p.id_paciente = c.id_paciente
+  where c.motivo = 'Consulta de rutina, dueño reporta buen estado'
+    and not exists (select 1 from public.factura f where f.id_consulta = c.id_consulta)
+  returning id_factura into v_id;
+  insert into public.detalle_factura (id_factura, numero_linea, descripcion, cantidad, precio_unitario)
+  values (v_id, 1, 'Consulta general', 1, 15.00);
+  update public.factura set impuesto = round(subtotal * 0.15, 2) where id_factura = v_id;
+  insert into public.pago (id_factura, fecha_pago, monto, forma_pago, id_usuario)
+  values (v_id, (select fecha_emision from public.factura where id_factura = v_id) + interval '5 minutes',
+    (select total from public.factura where id_factura = v_id), 'efectivo', v_recepcion);
+
+  -- Tres facturas de servicio suelto, sin atencion asociada (mismo caso que
+  -- F6 de la seccion 4 -- no hay catalogo de servicios, ver CLAUDE.md sec. 9).
+  for i in 1..3 loop
+    insert into public.factura (id_propietario, id_consulta, fecha_emision, id_usuario_emisor)
+    values (v_prop_ids[1 + (i * 4) % array_length(v_prop_ids, 1)], null, now() - ((i * 2) || ' days')::interval, v_recepcion)
+    returning id_factura into v_id;
+    insert into public.detalle_factura (id_factura, numero_linea, descripcion, cantidad, precio_unitario) values
+      (v_id, 1, (array['Baño y peluquería', 'Corte de uñas', 'Desparasitación externa'])[1 + (i % 3)], 1, (array[15.00, 5.00, 6.00])[1 + (i % 3)]);
+    update public.factura set impuesto = round(subtotal * 0.15, 2) where id_factura = v_id;
+    insert into public.pago (id_factura, fecha_pago, monto, forma_pago, id_usuario)
+    values (v_id, now() - ((i * 2) || ' days')::interval + interval '5 minutes', (select total from public.factura where id_factura = v_id), 'efectivo', v_recepcion);
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.10 Lista de espera adicional (18 mas, total 22).
+  -- --------------------------------------------------------------------------
+  for i in 1..18 loop
+    insert into public.lista_espera (id_paciente, id_veterinario, fecha_preferida, franja_preferida, motivo, estado, id_usuario_registro)
+    values (
+      v_pac_ids[1 + ((i + 7) % array_length(v_pac_ids, 1))],
+      case when i % 3 = 0 then null else v_veterinario end,
+      case when i % 4 = 0 then null else (current_date + ((3 + i) || ' days')::interval)::date end,
+      case when i % 4 = 0 then null else (array['manana', 'tarde'])[1 + (i % 2)] end,
+      v_espera_motivo[1 + (i % array_length(v_espera_motivo, 1))],
+      case when i % 6 = 0 then 'atendida' when i % 7 = 0 then 'cancelada' else 'pendiente' end,
+      v_recepcion
+    );
+  end loop;
+
+  -- --------------------------------------------------------------------------
+  -- 5.11 Ordenes de compra adicionales (22 mas, total 25), en las 4 fases del
+  -- ciclo de vida. Las que terminan 'recibida' se insertan en 'borrador' y se
+  -- actualizan aparte, igual que la orden 3 de la seccion 4 -- mismo motivo
+  -- exacto (fn_recibir_orden_compra depende de auth.uid() para id_usuario).
+  -- --------------------------------------------------------------------------
+  perform set_config('request.jwt.claim.sub', v_admin::text, true);
+  for i in 1..22 loop
+    v_estado_final := (array['borrador', 'emitida', 'recibida', 'cancelada'])[1 + (i % 4)];
+    insert into public.orden_compra (id_proveedor, estado, observacion, id_usuario_registro)
+    values (
+      v_prov_ids[1 + (i % array_length(v_prov_ids, 1))],
+      case when v_estado_final = 'recibida' then 'borrador' else v_estado_final end,
+      'Orden de compra generada para datos de demostración #' || i,
+      v_admin
+    )
+    returning id_orden_compra into v_oc_id;
+
+    insert into public.detalle_orden_compra (id_orden_compra, numero_linea, id_producto, cantidad, precio_unitario)
+    select v_oc_id, 1, id_producto, (5 + (i * 3) % 30), precio_unitario
+    from public.producto where codigo = (array['MED-001','MED-003','MED-006','INS-002','INS-005','VAC-001','VAC-004'])[1 + (i % 7)];
+
+    if v_estado_final = 'recibida' then
+      update public.orden_compra set estado = 'recibida' where id_orden_compra = v_oc_id;
+    end if;
+  end loop;
+  perform set_config('request.jwt.claim.sub', '', true);
+
+  -- --------------------------------------------------------------------------
+  -- 5.12 Parametros de negocio adicionales (9 mas, total 12 -- el pedido fue
+  -- 10-15). Los tres originales (impuesto_defecto_pct, horario_atencion_*)
+  -- son los unicos que la app lee hoy (Administracion > Parametros,
+  -- NuevaFacturaDialog); estos nueve quedan como configuracion de referencia,
+  -- no conectados todavia a ninguna pantalla -- mismo criterio que RNF-024,
+  -- ampliar un catalogo no exige tocar la estructura ni el resto de la app.
+  -- --------------------------------------------------------------------------
+  insert into public.parametro_sistema (clave, valor, descripcion) values
+    ('nombre_clinica', 'VetCare', 'Nombre comercial de la clínica, para comprobantes y correos.'),
+    ('telefono_clinica', '022345678', 'Teléfono principal de contacto de la clínica.'),
+    ('direccion_clinica', 'Av. Amazonas N34-56, Quito', 'Dirección física de la clínica.'),
+    ('moneda', 'USD', 'Moneda en la que se registran precios y facturas.'),
+    ('duracion_cita_default_min', '30', 'Duración sugerida, en minutos, al crear una cita sin especificarla.'),
+    ('dias_atencion', 'Lunes a Sábado', 'Días de la semana en que la clínica atiende.'),
+    ('limite_stock_critico_pct', '20', 'Porcentaje sobre el nivel mínimo a partir del cual una alerta de stock se considera crítica.'),
+    ('politica_cancelacion_horas', '24', 'Horas de anticipación sugeridas para cancelar una cita sin penalización.'),
+    ('correo_notificaciones', 'notificaciones@vetcare.local', 'Correo remitente sugerido para notificaciones internas.');
+end $$;
