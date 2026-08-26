@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import dayjs from 'dayjs';
-import { useDisponibilidadCita } from './useDisponibilidadCita';
+import { useDisponibilidadCita } from '../modules/agenda/useDisponibilidadCita';
 
 const { listarCitasDelDiaMock } = vi.hoisted(() => ({ listarCitasDelDiaMock: vi.fn() }));
-vi.mock('./api', () => ({ listarCitasDelDia: listarCitasDelDiaMock }));
+vi.mock('../modules/agenda/api', () => ({ listarCitasDelDia: listarCitasDelDiaMock }));
 
 const FECHA = dayjs('2026-08-27');
 const VETERINARIO = 'v1';

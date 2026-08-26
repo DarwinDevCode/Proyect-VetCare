@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { OlvidePasswordDialog } from './OlvidePasswordDialog';
+import { OlvidePasswordDialog } from '../portal/OlvidePasswordDialog';
 
 // Mock en el limite de lib/supabaseClient: solicitarRestablecerPassword
 // (portal/api.ts) llama a supabase.functions.invoke de verdad, solo se

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { leerLeidasVigentes, marcarLeidaEnStorage } from './notificacionesLeidas';
+import { leerLeidasVigentes, marcarLeidaEnStorage } from '../lib/notificacionesLeidas';
 
 const USUARIO = '00000000-0000-0000-0000-000000000001';
 const OTRO_USUARIO = '00000000-0000-0000-0000-000000000002';

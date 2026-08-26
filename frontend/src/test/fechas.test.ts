@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { soloFechaLocal } from './fechas';
+import { soloFechaLocal } from '../lib/fechas';
 
 // Regresion del bug real documentado en CLAUDE.md ("Problemas conocidos"):
 // una fecha DATE castida a timestamptz con medianoche UTC ("...T00:00:00+00:00")

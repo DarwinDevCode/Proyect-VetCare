@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import dayjs from 'dayjs';
-import { citasARangosOcupados, estaDisponible, proximosHuecosLibres } from './disponibilidad';
-import type { Cita } from '../../types/dominio';
+import { citasARangosOcupados, estaDisponible, proximosHuecosLibres } from '../modules/agenda/disponibilidad';
+import type { Cita } from '../types/dominio';
 
 function citaDeEjemplo(overrides: Partial<Cita>): Cita {
   return {

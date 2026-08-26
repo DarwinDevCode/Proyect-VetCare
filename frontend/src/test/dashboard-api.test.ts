@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { obtenerResumenAdministrador, obtenerResumenRecepcionista, obtenerResumenVeterinario } from './api';
+import { obtenerResumenAdministrador, obtenerResumenRecepcionista, obtenerResumenVeterinario } from '../modules/dashboard/api';
 
 const {
   listarCitasDelDiaMock,
@@ -21,17 +21,17 @@ const {
   listarProductosMock: vi.fn(),
 }));
 
-vi.mock('../agenda/api', () => ({
+vi.mock('../modules/agenda/api', () => ({
   listarCitasDelDia: listarCitasDelDiaMock,
   listarListaEspera: listarListaEsperaMock,
   listarSolicitudesPendientes: listarSolicitudesPendientesMock,
 }));
-vi.mock('../compras/api', () => ({ listarOrdenesCompra: listarOrdenesCompraMock }));
-vi.mock('../facturacion/api', () => ({
+vi.mock('../modules/compras/api', () => ({ listarOrdenesCompra: listarOrdenesCompraMock }));
+vi.mock('../modules/facturacion/api', () => ({
   listarFacturas: listarFacturasMock,
   listarPagosDelPeriodo: listarPagosDelPeriodoMock,
 }));
-vi.mock('../inventario/api', () => ({
+vi.mock('../modules/inventario/api', () => ({
   listarLotesPorVencer: listarLotesPorVencerMock,
   listarProductos: listarProductosMock,
 }));

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listarNotificacionesPortal } from './notificaciones';
+import { listarNotificacionesPortal } from '../portal/notificaciones';
 
 const { listarMisCitasMock, listarMisFacturasMock } = vi.hoisted(() => ({
   listarMisCitasMock: vi.fn(),
   listarMisFacturasMock: vi.fn(),
 }));
-vi.mock('./api', () => ({
+vi.mock('../portal/api', () => ({
   listarMisCitas: listarMisCitasMock,
   listarMisFacturas: listarMisFacturasMock,
 }));

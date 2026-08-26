@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { interpretarEvento } from './eventoHistorial';
-import type { EventoHistorial } from '../../types/dominio';
+import { interpretarEvento } from '../modules/historial/eventoHistorial';
+import type { EventoHistorial } from '../types/dominio';
 
 function evento(parcial: Partial<EventoHistorial>): EventoHistorial {
   return {

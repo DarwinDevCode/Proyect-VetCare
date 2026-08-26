@@ -17,9 +17,14 @@ Vite/frontend, Deno/Edge Functions y Postgres), así que cada uno se corre por s
 | Integración de facturación (Deno test) | `deno test --allow-net --allow-env supabase/tests/fn_emitir_factura_integration.test.ts` (desde la raíz) | `supabase start` corriendo — deja un puñado de filas de prueba permanentes, ver el encabezado del archivo |
 | Base de datos (pgTAP) | `cd supabase && npx supabase test db --local` | `supabase start` corriendo |
 
-Las pruebas de `frontend/src/test/` (a diferencia del resto de la suite Vitest, co-ubicada junto
-a cada módulo) agrupan escenarios de un mismo flujo transversal — hoy, login de personal y de
-portal — en un solo lugar, a pedido explícito del cliente.
+Toda la suite Vitest vive en `frontend/src/test/`, a pedido explícito del cliente ("todos esos
+test deben estar en la carpeta test") — no co-ubicada junto a cada módulo, que era el patrón
+inicial de los primeros archivos de esta suite. El nombre de archivo indica a qué módulo prueba
+(`agenda-disponibilidad.test.ts`, `dashboard-api.test.ts`, etc.); dos pares de archivos que se
+hubieran llamado igual en su ubicación original (los dos `edad.ts`, y los dos
+`notificaciones.ts` de `layout`/`portal`) se distinguen con ese mismo prefijo
+(`pacientes-edad.test.ts` vs. `historial-edad.test.ts`, `layout-notificaciones.test.ts` vs.
+`portal-notificaciones.test.ts`).
 
 Cada archivo de prueba de base de datos corre dentro de `BEGIN; ... ROLLBACK;`: nunca deja
 datos residuales, aunque cree sus propios fixtures.
@@ -35,18 +40,18 @@ crítico y lo más reciente", no cobertura exhaustiva.
 
 | Módulo | Verificado (manual, ver CLAUDE.md) | Prueba automatizada |
 |---|---|---|
-| Login (personal y portal) | Credenciales incorrectas, campos vacíos, credenciales correctas, "¿Olvidaste tu contraseña?" | `frontend/src/test/LoginPage.test.tsx`; `frontend/src/test/LoginPortalPage.test.tsx`; `supabase/tests/auth_login_integration.test.ts` (contra el Auth real) — ver `ANALISIS_LOGIN.md` |
-| 1. Pacientes y Propietarios | Alta en 2 pasos, detección de duplicado por identificación, ficha con pestañas por rol, búsqueda por mascota/cédula/propietario | `frontend/src/modules/pacientes/edad.test.ts` (cálculo de edad, RF-010) |
-| 2. Agenda y Citas | Disponibilidad en vivo con sugerencias, reprogramar/cancelar, vista semanal, lista de espera, solicitudes desde el portal | `frontend/src/modules/agenda/disponibilidad.test.ts` (chequeo cliente, RF-011); `frontend/src/modules/agenda/useDisponibilidadCita.test.ts` (el hook completo, con debounce y su regresión de "reabrir el diálogo"); `rn004_solapamiento_citas_test.sql` (garantía real del `EXCLUDE`) |
-| 3. Historial Clínico | Consulta + vínculo con cita, vacunación con descuento automático, examen con resultado diferido, signos vitales, próxima dosis | `fechas.test.ts` (formato de fecha del timeline); `modules/historial/eventoHistorial.test.ts` (mapeo posicional de `v_historial_clinico`); `modules/historial/edad.test.ts`; ninguna del flujo clínico de alta completo |
+| Login (personal y portal) | Credenciales incorrectas, campos vacíos, credenciales correctas, "¿Olvidaste tu contraseña?" | `frontend/src/test/LoginPage.test.tsx`; `LoginPortalPage.test.tsx`; `supabase/tests/auth_login_integration.test.ts` (contra el Auth real) — ver `ANALISIS_LOGIN.md` |
+| 1. Pacientes y Propietarios | Alta en 2 pasos, detección de duplicado por identificación, ficha con pestañas por rol, búsqueda por mascota/cédula/propietario | `frontend/src/test/pacientes-edad.test.ts` (cálculo de edad, RF-010) |
+| 2. Agenda y Citas | Disponibilidad en vivo con sugerencias, reprogramar/cancelar, vista semanal, lista de espera, solicitudes desde el portal | `frontend/src/test/agenda-disponibilidad.test.ts` (chequeo cliente, RF-011); `agenda-useDisponibilidadCita.test.ts` (el hook completo, con debounce y su regresión de "reabrir el diálogo"); `rn004_solapamiento_citas_test.sql` (garantía real del `EXCLUDE`) |
+| 3. Historial Clínico | Consulta + vínculo con cita, vacunación con descuento automático, examen con resultado diferido, signos vitales, próxima dosis | `frontend/src/test/fechas.test.ts` (formato de fecha del timeline); `eventoHistorial.test.ts` (mapeo posicional de `v_historial_clinico`); `historial-edad.test.ts`; ninguna del flujo clínico de alta completo |
 | 4. Inventario y Medicamentos | Alta de producto, ingreso/ajuste/consumo, alertas de stock mínimo y lotes por vencer | `rn010_existencia_no_negativa_test.sql` (garantía real del trigger) |
-| 5. Facturación y Reportes | Emisión desde atención o servicio suelto, numeración, pagos mixtos, reporte de ingresos, impresión | `supabase/tests/fn_emitir_factura_integration.test.ts` (RPC real: RN-012/RN-013/RN-014, atomicidad, rol) |
+| 5. Facturación y Reportes | Emisión desde atención o servicio suelto, numeración, pagos mixtos, reporte de ingresos, impresión | `supabase/tests/fn_emitir_factura_integration.test.ts` (RPC real: RN-012/RN-013/RN-014, atomicidad, rol); `frontend/src/test/facturacion-formato.test.ts` |
 | 6. Administración del sistema | Ciclo de vida de cuentas (crear/activar/desactivar/reset), roles, catálogos, parámetros, auditoría | `fn_auditar_cambio_test.sql` (bitácora, ver sección 2) |
 | 7. Compras y Proveedores | Orden de compra borrador→emitida→recibida, descuento automático al recibir, protección contra doble recepción | ninguna |
-| 8. Portal del propietario | Login separado de personal, mis mascotas/citas/facturas, solicitar y cancelar cita, cambiar/recuperar contraseña, imprimir factura | `fn_cancelar_cita_portal_test.sql`; `portal_tratamientos_estructural_test.sql`; `CambiarPasswordDialog.test.tsx`; `OlvidePasswordDialog.test.tsx`; `portal-acceso/index.test.ts`; `portal-olvide-password/index.test.ts` |
-| Campana de notificaciones (personal y portal) + leídas/no leídas | Alertas por rol, marcar leída al navegar, persistencia en localStorage | `layout/notificaciones.test.ts`; `portal/notificaciones.test.ts`; `lib/notificacionesLeidas.test.ts` |
-| Navegación por rol (RI-002/SRS 3.8) | Cada rol ve exactamente los módulos que le corresponden | `layout/modulos.test.ts` |
-| Agregación del Dashboard (Fase 6) | KPIs por rol (citas de hoy, ingresos, stock, órdenes, facturas pendientes) | `modules/dashboard/api.test.ts` |
+| 8. Portal del propietario | Login separado de personal, mis mascotas/citas/facturas, solicitar y cancelar cita, cambiar/recuperar contraseña, imprimir factura | `fn_cancelar_cita_portal_test.sql`; `portal_tratamientos_estructural_test.sql`; `frontend/src/test/CambiarPasswordDialog.test.tsx`; `OlvidePasswordDialog.test.tsx`; `portal-acceso/index.test.ts`; `portal-olvide-password/index.test.ts` |
+| Campana de notificaciones (personal y portal) + leídas/no leídas | Alertas por rol, marcar leída al navegar, persistencia en localStorage | `frontend/src/test/layout-notificaciones.test.ts`; `portal-notificaciones.test.ts`; `notificacionesLeidas.test.ts` |
+| Navegación por rol (RI-002/SRS 3.8) | Cada rol ve exactamente los módulos que le corresponden | `frontend/src/test/modulos.test.ts` |
+| Agregación del Dashboard (Fase 6) | KPIs por rol (citas de hoy, ingresos, stock, órdenes, facturas pendientes) | `frontend/src/test/dashboard-api.test.ts` |
 
 ## 2. Pruebas de regresión
 
@@ -56,13 +61,13 @@ pensada específicamente para que ese bug no pueda volver a colarse en silencio.
 
 | Bug | Causa raíz | Prueba de regresión |
 |---|---|---|
-| Mensajes de `raise exception` propios (`P0001`) no llegaban al usuario | `lib/errors.ts` no contemplaba el código `P0001` | `frontend/src/lib/errors.test.ts` (cada rama del switch, incluido `P0001`) |
+| Mensajes de `raise exception` propios (`P0001`) no llegaban al usuario | `lib/errors.ts` no contemplaba el código `P0001` | `frontend/src/test/errors.test.ts` (cada rama del switch, incluido `P0001`) |
 | Embed de PostgREST sin `!inner` dejaba pasar `propietario: null` | Filtrar por un campo de un embed sin `!inner` no filtra las filas del padre | sin prueba automatizada — pendiente |
 | RF-031 (Administrador ve facturas) contradecía la RLS de `propietario` (Módulo 1) | Política de `propietario` no incluía a Administrador | `rf031_propietario_facturado_administrador_test.sql` **(nuevo)** |
 | `fn_auditar_cambio` reventaba con `record "new" has no field...` al sembrar `parametro_sistema` | Acceso a `new.<campo>` directo en un trigger compartido entre tablas con columnas distintas | `fn_auditar_cambio_test.sql` **(nuevo)** |
-| Fechas de vacunación/examen del timeline retrocedían un día en husos detrás de UTC | Formatear una columna `date` (vía `timestamptz` a medianoche UTC) con la hora local del navegador | `frontend/src/lib/fechas.test.ts` **(nuevo)**, sobre `soloFechaLocal` extraída de `EventoHistorialItem.tsx` |
+| Fechas de vacunación/examen del timeline retrocedían un día en husos detrás de UTC | Formatear una columna `date` (vía `timestamptz` a medianoche UTC) con la hora local del navegador | `frontend/src/test/fechas.test.ts` **(nuevo)**, sobre `soloFechaLocal` extraída de `EventoHistorialItem.tsx` |
 | La sesión se perdía al cambiar de pestaña (personal y portal) | `onAuthStateChange` reaccionaba a cualquier evento (`TOKEN_REFRESHED`/`INITIAL_SESSION` redundante), no solo a un cambio real de usuario | sin prueba automatizada — no se pudo forzar la condición exacta en el entorno de prueba (ver CLAUDE.md, limitación documentada explícitamente) |
-| `useDisponibilidadCita` no recargaba al reabrir el diálogo de nueva cita para el mismo veterinario/día | Dependencias del efecto no incluían nada que cambiara en cada apertura | `modules/agenda/useDisponibilidadCita.test.ts` **(nuevo)** — cierra/reabre con el mismo veterinario/fecha y confirma que sí vuelve a consultar |
+| `useDisponibilidadCita` no recargaba al reabrir el diálogo de nueva cita para el mismo veterinario/día | Dependencias del efecto no incluían nada que cambiara en cada apertura | `frontend/src/test/agenda-useDisponibilidadCita.test.ts` **(nuevo)** — cierra/reabre con el mismo veterinario/fecha y confirma que sí vuelve a consultar |
 | `service_role` no recibía `GRANT` automático sobre tablas nuevas | El privilegio SQL se comprueba antes que RLS; versiones recientes del CLI no lo dan gratis | cubierto indirectamente por `portal-acceso/index.test.ts` (ejercita la Edge Function real contra el stack local) |
 | XSS en el HTML de los correos de credenciales (`nombrePropietario` con `<script>`) | Interpolación sin escapar en la plantilla del correo | `_shared/portalPassword.test.ts` (regresión de XSS explícita sobre `plantillaHtml`) |
 | Enumeración de cuentas vía "olvidé mi contraseña" | — (propiedad de diseño, no un bug corregido) | `portal-olvide-password/index.test.ts` (correo existente vs. inexistente → misma respuesta) |

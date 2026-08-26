@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CambiarPasswordDialog } from './CambiarPasswordDialog';
+import { CambiarPasswordDialog } from '../portal/CambiarPasswordDialog';
 
 // Mock en el limite de lib/supabaseClient (no mas arriba): se prueba el
 // dialogo con su logica real hasta la frontera de red, no un componente

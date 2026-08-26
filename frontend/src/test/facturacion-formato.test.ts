@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatoMoneda, ETIQUETA_ESTADO_COBRO, COLOR_ESTADO_COBRO, ETIQUETA_FORMA_PAGO } from './formato';
+import { formatoMoneda, ETIQUETA_ESTADO_COBRO, COLOR_ESTADO_COBRO, ETIQUETA_FORMA_PAGO } from '../modules/facturacion/formato';
 
 describe('formatoMoneda', () => {
   it('formatea un monto positivo como moneda en español (es-EC/USD)', () => {

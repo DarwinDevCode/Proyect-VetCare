@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listarNotificaciones } from './notificaciones';
+import { listarNotificaciones } from '../layout/notificaciones';
 
 const { listarProductosMock, listarLotesPorVencerMock, listarSolicitudesPendientesMock, listarListaEsperaMock } =
   vi.hoisted(() => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { modulosParaRol } from './modulos';
+import { modulosParaRol } from '../layout/modulos';
 
 // RI-002 / SRS 3.8: el sistema muestra unicamente los modulos a los que el
 // rol tiene acceso. Esta matriz ya se verifico manualmente en cada fase

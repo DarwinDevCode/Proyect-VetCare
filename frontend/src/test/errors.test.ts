@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mensajeError } from './errors';
+import { mensajeError } from '../lib/errors';
 
 // RNF-014: mensajes en espanol, sin codigos ni texto propio del gestor de
 // datos. Cubre cada rama del switch para que un cambio futuro no rompa en

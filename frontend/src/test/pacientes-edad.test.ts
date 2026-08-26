@@ -1,14 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcularEdadTexto } from './edad';
+import { calcularEdadTexto } from '../modules/pacientes/edad';
 
-// Este archivo es un duplicado byte a byte de modules/pacientes/edad.ts (no
-// se investigó por qué existen dos copias -- posible resto de cuando
-// Historial e Inventario se fusionaron con Pacientes, ver CLAUDE.md sección
-// 9). Se prueba igual porque son dos módulos independientes en tiempo de
-// compilación: uno podría divergir del otro sin que ninguna prueba lo note.
+// "Hoy" fijo para que las pruebas no dependan de cuando se corran.
 const HOY = new Date('2026-08-26T12:00:00Z');
 
-describe('calcularEdadTexto (modules/historial)', () => {
+describe('calcularEdadTexto', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(HOY);
@@ -28,6 +24,18 @@ describe('calcularEdadTexto (modules/historial)', () => {
 
   it('con menos de un año muestra solo meses', () => {
     expect(calcularEdadTexto('2026-05-26')).toBe('3 meses');
+  });
+
+  it('un mes exacto usa singular', () => {
+    expect(calcularEdadTexto('2026-07-26')).toBe('1 mes');
+  });
+
+  it('con años exactos (sin meses sueltos) muestra solo años', () => {
+    expect(calcularEdadTexto('2023-08-26')).toBe('3 años');
+  });
+
+  it('un año exacto usa singular', () => {
+    expect(calcularEdadTexto('2025-08-26')).toBe('1 año');
   });
 
   it('con años y meses combina ambos', () => {
