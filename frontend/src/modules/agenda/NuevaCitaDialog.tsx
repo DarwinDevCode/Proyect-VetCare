@@ -56,7 +56,12 @@ export function NuevaCitaDialog({
     if (!abierto) return;
     setPaciente(null);
     setIdVeterinario(prefill?.idVeterinario ?? '');
-    setFecha(fechaPorDefecto);
+    // Si el prefill trae hora (clic en un hueco del grid), esa hora ya lleva
+    // el dia correcto -- en la vista semanal, "fechaPorDefecto" es solo el
+    // lunes de referencia de la semana, no necesariamente el dia del hueco
+    // clicado (puede ser cualquiera de los 7). Sin esto, la cita se crearia
+    // con la hora correcta pero en el dia equivocado.
+    setFecha(prefill?.hora ?? fechaPorDefecto);
     setHora(prefill?.hora ?? null);
     setDuracionMinutos(30);
     setMotivo('');

@@ -8,6 +8,8 @@ import {
   MenuItem,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useMediaQuery,
   useTheme,
@@ -18,12 +20,24 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import dayjs, { type Dayjs } from 'dayjs';
 import type { CitaConDetalle, Usuario } from '../../types/dominio';
-import { listarCitasDelDia, listarVeterinarios } from './api';
+import { listarCitasDelDia, listarCitasDeLaSemana, listarVeterinarios } from './api';
 import { mensajeError } from '../../lib/errors';
 import { AgendaGrid } from './AgendaGrid';
+import { AgendaSemanal } from './AgendaSemanal';
 import { NuevaCitaDialog } from './NuevaCitaDialog';
 import { CitaDetalleDialog } from './CitaDetalleDialog';
 import { useAuth } from '../../auth/AuthContext';
+
+type Vista = 'dia' | 'semana';
+
+// Lunes de la semana que contiene "fecha" -- dayjs().day() da 0 (domingo) a 6
+// (sabado); sin el offset, restar "day()" dias llevaria a domingo, no a lunes.
+// No se agrega el plugin isoWeek de dayjs solo para esto (RNF-021, minimizar
+// dependencias nuevas).
+function lunesDeLaSemana(fecha: Dayjs): Dayjs {
+  const diaIso = (fecha.day() + 6) % 7;
+  return fecha.subtract(diaIso, 'day').startOf('day');
+}
 
 interface PrefillNueva {
   idVeterinario?: string;
@@ -36,9 +50,15 @@ export function AgendaPage() {
   const theme = useTheme();
   const esMovil = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const [vista, setVista] = useState<Vista>('dia');
   const [fecha, setFecha] = useState<Dayjs>(() => dayjs());
   const [veterinarios, setVeterinarios] = useState<Usuario[]>([]);
   const [veterinariosSeleccionados, setVeterinariosSeleccionados] = useState<string[]>([]);
+  // La vista semanal responde una pregunta distinta a la diaria (RF-013,
+  // "cuando tiene un hueco esta semana Dr. Vera" vs "quien esta libre ahora"),
+  // por eso necesita un unico veterinario, no la seleccion multiple de la vista
+  // por dia.
+  const [vetSemana, setVetSemana] = useState('');
   const [citas, setCitas] = useState<CitaConDetalle[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +67,12 @@ export function AgendaPage() {
   const [prefillNueva, setPrefillNueva] = useState<PrefillNueva | null>(null);
   const [citaSeleccionada, setCitaSeleccionada] = useState<CitaConDetalle | null>(null);
 
-  const recargar = useCallback(async (f: Dayjs) => {
+  const recargar = useCallback(async (f: Dayjs, v: Vista) => {
     setCargando(true);
     setError(null);
     try {
-      const resultado = await listarCitasDelDia(f.format('YYYY-MM-DD'));
+      const resultado =
+        v === 'dia' ? await listarCitasDelDia(f.format('YYYY-MM-DD')) : await listarCitasDeLaSemana(lunesDeLaSemana(f));
       setCitas(resultado);
       // Si el detalle de una cita esta abierto, se refresca con los datos nuevos
       // (mismo patron que PacientesPage tras editar una ficha).
@@ -70,13 +91,14 @@ export function AgendaPage() {
       .then((vets) => {
         setVeterinarios(vets);
         setVeterinariosSeleccionados(vets.map((v) => v.id_usuario));
+        setVetSemana((actual) => actual || vets[0]?.id_usuario || '');
       })
       .catch((err) => setError(mensajeError(err)));
   }, []);
 
   useEffect(() => {
-    recargar(fecha);
-  }, [fecha, recargar]);
+    recargar(fecha, vista);
+  }, [fecha, vista, recargar]);
 
   function alternarVeterinario(id: string) {
     setVeterinariosSeleccionados((actual) =>
@@ -90,6 +112,7 @@ export function AgendaPage() {
   }
 
   const veterinariosVisibles = veterinarios.filter((v) => veterinariosSeleccionados.includes(v.id_usuario));
+  const citasSemanaDelVet = citas.filter((c) => c.id_veterinario === vetSemana);
 
   return (
     <Box>
@@ -118,8 +141,11 @@ export function AgendaPage() {
         spacing={2}
         sx={{ justifyContent: 'space-between', alignItems: { md: 'center' }, mb: 2 }}
       >
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <IconButton onClick={() => setFecha((f) => f.subtract(1, 'day'))} aria-label="Día anterior">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <IconButton
+            onClick={() => setFecha((f) => f.subtract(1, vista === 'dia' ? 'day' : 'week'))}
+            aria-label={vista === 'dia' ? 'Día anterior' : 'Semana anterior'}
+          >
             <ChevronLeftIcon />
           </IconButton>
           <DatePicker
@@ -127,15 +153,45 @@ export function AgendaPage() {
             onChange={(nueva) => nueva && setFecha(nueva)}
             slotProps={{ textField: { size: 'small', sx: { width: 170 } } }}
           />
-          <IconButton onClick={() => setFecha((f) => f.add(1, 'day'))} aria-label="Día siguiente">
+          <IconButton
+            onClick={() => setFecha((f) => f.add(1, vista === 'dia' ? 'day' : 'week'))}
+            aria-label={vista === 'dia' ? 'Día siguiente' : 'Semana siguiente'}
+          >
             <ChevronRightIcon />
           </IconButton>
           <Button size="small" onClick={() => setFecha(dayjs())}>
             Hoy
           </Button>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={vista}
+            onChange={(_e, valor: Vista | null) => valor && setVista(valor)}
+          >
+            <ToggleButton value="dia">Día</ToggleButton>
+            <ToggleButton value="semana">Semana</ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
 
-        {esMovil ? (
+        {vista === 'semana' ? (
+          // RF-013: la vista semanal es de un solo veterinario a la vez (ver
+          // AgendaSemanal) -- este selector reemplaza a los chips de seleccion
+          // multiple de la vista por dia, no los complementa.
+          <TextField
+            select
+            size="small"
+            label="Veterinario"
+            value={vetSemana}
+            onChange={(e) => setVetSemana(e.target.value)}
+            sx={{ minWidth: 200 }}
+          >
+            {veterinarios.map((v) => (
+              <MenuItem key={v.id_usuario} value={v.id_usuario}>
+                {v.nombres} {v.apellidos}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : esMovil ? (
           <TextField
             select
             size="small"
@@ -177,13 +233,21 @@ export function AgendaPage() {
 
       {!cargando && veterinarios.length === 0 ? (
         <Alert severity="info">No hay veterinarios activos registrados.</Alert>
-      ) : (
+      ) : vista === 'dia' ? (
         <AgendaGrid
           fecha={fecha}
           veterinarios={veterinariosVisibles}
           citas={citas}
           puedeCrear={puedeGestionar}
           onClickSlotVacio={(idVeterinario, hora) => abrirNuevaCita({ idVeterinario, hora })}
+          onClickCita={setCitaSeleccionada}
+        />
+      ) : (
+        <AgendaSemanal
+          inicioSemana={lunesDeLaSemana(fecha)}
+          citas={citasSemanaDelVet}
+          puedeCrear={puedeGestionar}
+          onClickSlotVacio={(_dia, hora) => abrirNuevaCita({ idVeterinario: vetSemana, hora })}
           onClickCita={setCitaSeleccionada}
         />
       )}
@@ -194,7 +258,7 @@ export function AgendaPage() {
         fechaPorDefecto={fecha}
         prefill={prefillNueva}
         onCerrar={() => setDialogoNuevaAbierto(false)}
-        onCreada={() => recargar(fecha)}
+        onCreada={() => recargar(fecha, vista)}
       />
 
       <CitaDetalleDialog
@@ -202,7 +266,7 @@ export function AgendaPage() {
         veterinarios={veterinarios}
         puedeGestionar={puedeGestionar}
         onCerrar={() => setCitaSeleccionada(null)}
-        onActualizado={() => recargar(fecha)}
+        onActualizado={() => recargar(fecha, vista)}
       />
     </Box>
   );

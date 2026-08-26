@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { supabase } from '../../lib/supabaseClient';
 import type { Cita, CitaConDetalle, PacienteParaCita, Rol, Usuario } from '../../types/dominio';
 
@@ -31,6 +31,26 @@ export async function listarCitasDelDia(fecha: string): Promise<CitaConDetalle[]
     )
     .gte('fecha_hora_inicio', inicioDia)
     .lt('fecha_hora_inicio', inicioDiaSiguiente)
+    .order('fecha_hora_inicio');
+
+  if (error) throw error;
+  return data as unknown as CitaConDetalle[];
+}
+
+// RF-013 ("filtrando por periodo"), vista semanal (1f): mismo patron que
+// listarCitasDelDia -- trae todos los veterinarios, el filtro de cual mostrar
+// se aplica en la UI, no aqui.
+export async function listarCitasDeLaSemana(inicioSemana: Dayjs): Promise<CitaConDetalle[]> {
+  const inicio = inicioSemana.startOf('day').toISOString();
+  const fin = inicioSemana.add(7, 'day').startOf('day').toISOString();
+
+  const { data, error } = await supabase
+    .from('cita')
+    .select(
+      `*, paciente:id_paciente(${SELECCION_PACIENTE_CITA}), veterinario:id_veterinario(id_usuario, nombres, apellidos)`,
+    )
+    .gte('fecha_hora_inicio', inicio)
+    .lt('fecha_hora_inicio', fin)
     .order('fecha_hora_inicio');
 
   if (error) throw error;
