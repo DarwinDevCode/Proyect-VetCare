@@ -771,3 +771,50 @@ exactamente el mismo que antes, solo con el lenguaje visual nuevo.
 de 999px en botones/chips, color de fondo `#fff2eb` en el ítem de nav activo — coincide
 exactamente con `ORGANIC.accent[100]`); buscador de la barra superior probado desde otra
 página y ya estando en Pacientes, ambos casos filtran correctamente tras la corrección.
+
+### Fase 1a — completada: Pacientes y Propietarios
+
+Primer módulo de la Fase 1 (reskin + reestructuración de los cinco módulos existentes,
+en orden RF). Aquí sí hubo cambios de estructura, no solo de estilo — los wireframes 1b-1e
+pedían un flujo distinto al que existía, no solo un color distinto.
+
+- **Alta en 2 pasos** (`NuevoPacienteDialog.tsx`, 1d): separa "a nombre de quién" de los
+  datos de la mascota, en vez de un único formulario largo. Un fallo en el paso 2 no obliga
+  a repetir el paso 1 — el propietario ya elegido/completado se conserva.
+- **Detección de duplicado** (1e): mientras se escribe la identificación de un propietario
+  nuevo, se reutiliza `buscarPropietarios()` (RF-007, ya existente) para avisar si ya hay
+  uno con esa identificación exacta, con un botón "Usar este propietario". Es una capa de
+  UX informativa sobre el `UNIQUE` que ya existe en la base — no lo reemplaza ni lo debilita;
+  si el aviso fallara por lo que sea (red, etc.), el alta igual se protege por la restricción
+  real al guardar. Verificado en navegador: identificación de un propietario ya sembrado →
+  aviso correcto → "Usar este propietario" → paciente creado vinculado al propietario
+  existente, sin duplicar el registro (confirmado por SQL).
+- **Ficha con pestañas** (`FichaDialog.tsx`, 1c): Resumen (contenido de siempre) + Citas +,
+  solo para Veterinario, Historial y Vacunas. **Decisión propia, no del wireframe literal**:
+  el wireframe muestra las mismas 5 pestañas (+ Facturas) para cualquiera que abra la ficha,
+  pero Pacientes lo abren tanto Recepcionista como Veterinario, y RN-006 reserva Historial/
+  Vacunas al Veterinario — mostrarle esas pestañas a Recepcionista habría sido el mismo
+  antipatrón ya evitado en el Módulo 4 (ofrecer una interacción que la RLS de todas formas
+  vaciaría). Verificado en navegador con las dos cuentas: Recepcionista ve exactamente
+  Resumen+Citas, Veterinario ve las 4, con datos reales en cada una (Historial trae la
+  consulta y el examen de un paciente de prueba; Vacunas, correctamente vacío para uno sin
+  vacunas registradas). **Pestaña "Facturas" del wireframe, omitida en esta pasada**: una
+  factura se vincula a `propietario` o a `consulta`, no a `paciente` directamente, y un dueño
+  con varias mascotas no tiene una respuesta obvia a "qué significa la factura de esta
+  mascota" sin una decisión de producto previa — queda fuera de este alcance hasta que se
+  defina.
+- **Filtro por especie** (1b): recortado a lo único que hoy tiene una capacidad real detrás
+  (client-side sobre lo ya cargado). Los filtros "Veterinario ▾" y "Activos ▾" del wireframe
+  no se implementaron: los pacientes no están ligados a un veterinario, y no existe ninguna
+  pantalla que desactive un paciente (RF-033 lo previó en el esquema, pero ninguna UI lo usa
+  todavía) — ofrecer ese filtro habría sido decorativo, sin nada real que filtrar.
+- Nueva función `listarCitasPorPaciente()` en `modules/agenda/api.ts`, reutilizada por la
+  pestaña Citas de la ficha — mismo nivel de acceso que el resto de Agenda (`cita_select` ya
+  admite Recepcionista y Veterinario), sin política RLS nueva.
+
+**Nota de entorno, no de código**: durante la verificación, los `Select` de MUI dejaron de
+abrirse con clics simulados a medias (un `.click()` sintético solo dispara `click`, pero
+`MuiSelect` escucha `mousedown` para abrirse) y varias lecturas del DOM se hicieron antes de
+que React confirmara el cambio de estado tras un evento nativo. Ninguno de los dos es un bug
+de la aplicación — se resolvió despachando la secuencia completa
+`mousedown`→`mouseup`→`click` y esperando un tick antes de leer el resultado.
