@@ -14,6 +14,7 @@ Vite/frontend, Deno/Edge Functions y Postgres), así que cada uno se corre por s
 | Frontend (Vitest) | `cd frontend && npm run test` | nada adicional |
 | Edge Functions (Deno test) | `deno test --allow-net --allow-env supabase/functions` (desde la raíz) | `supabase start` corriendo (las de integración llaman al stack local real) |
 | Integración de Auth (Deno test) | `deno test --allow-net --allow-env supabase/tests/auth_login_integration.test.ts` (desde la raíz) | `supabase start` corriendo — llama al GoTrue real, no a una Edge Function |
+| Integración de facturación (Deno test) | `deno test --allow-net --allow-env supabase/tests/fn_emitir_factura_integration.test.ts` (desde la raíz) | `supabase start` corriendo — deja un puñado de filas de prueba permanentes, ver el encabezado del archivo |
 | Base de datos (pgTAP) | `cd supabase && npx supabase test db --local` | `supabase start` corriendo |
 
 Las pruebas de `frontend/src/test/` (a diferencia del resto de la suite Vitest, co-ubicada junto
@@ -36,14 +37,16 @@ crítico y lo más reciente", no cobertura exhaustiva.
 |---|---|---|
 | Login (personal y portal) | Credenciales incorrectas, campos vacíos, credenciales correctas, "¿Olvidaste tu contraseña?" | `frontend/src/test/LoginPage.test.tsx`; `frontend/src/test/LoginPortalPage.test.tsx`; `supabase/tests/auth_login_integration.test.ts` (contra el Auth real) — ver `ANALISIS_LOGIN.md` |
 | 1. Pacientes y Propietarios | Alta en 2 pasos, detección de duplicado por identificación, ficha con pestañas por rol, búsqueda por mascota/cédula/propietario | `frontend/src/modules/pacientes/edad.test.ts` (cálculo de edad, RF-010) |
-| 2. Agenda y Citas | Disponibilidad en vivo con sugerencias, reprogramar/cancelar, vista semanal, lista de espera, solicitudes desde el portal | `frontend/src/modules/agenda/disponibilidad.test.ts` (chequeo cliente, RF-011); `rn004_solapamiento_citas_test.sql` (garantía real del `EXCLUDE`) |
-| 3. Historial Clínico | Consulta + vínculo con cita, vacunación con descuento automático, examen con resultado diferido, signos vitales, próxima dosis | `fechas.test.ts` (formato de fecha del timeline, ver sección 2); ninguna del flujo clínico completo |
+| 2. Agenda y Citas | Disponibilidad en vivo con sugerencias, reprogramar/cancelar, vista semanal, lista de espera, solicitudes desde el portal | `frontend/src/modules/agenda/disponibilidad.test.ts` (chequeo cliente, RF-011); `frontend/src/modules/agenda/useDisponibilidadCita.test.ts` (el hook completo, con debounce y su regresión de "reabrir el diálogo"); `rn004_solapamiento_citas_test.sql` (garantía real del `EXCLUDE`) |
+| 3. Historial Clínico | Consulta + vínculo con cita, vacunación con descuento automático, examen con resultado diferido, signos vitales, próxima dosis | `fechas.test.ts` (formato de fecha del timeline); `modules/historial/eventoHistorial.test.ts` (mapeo posicional de `v_historial_clinico`); `modules/historial/edad.test.ts`; ninguna del flujo clínico de alta completo |
 | 4. Inventario y Medicamentos | Alta de producto, ingreso/ajuste/consumo, alertas de stock mínimo y lotes por vencer | `rn010_existencia_no_negativa_test.sql` (garantía real del trigger) |
-| 5. Facturación y Reportes | Emisión desde atención o servicio suelto, numeración, pagos mixtos, reporte de ingresos, impresión | ninguna (RN-013/atomicidad de `fn_emitir_factura` sigue solo verificada por `curl`, ver sección 3) |
+| 5. Facturación y Reportes | Emisión desde atención o servicio suelto, numeración, pagos mixtos, reporte de ingresos, impresión | `supabase/tests/fn_emitir_factura_integration.test.ts` (RPC real: RN-012/RN-013/RN-014, atomicidad, rol) |
 | 6. Administración del sistema | Ciclo de vida de cuentas (crear/activar/desactivar/reset), roles, catálogos, parámetros, auditoría | `fn_auditar_cambio_test.sql` (bitácora, ver sección 2) |
 | 7. Compras y Proveedores | Orden de compra borrador→emitida→recibida, descuento automático al recibir, protección contra doble recepción | ninguna |
 | 8. Portal del propietario | Login separado de personal, mis mascotas/citas/facturas, solicitar y cancelar cita, cambiar/recuperar contraseña, imprimir factura | `fn_cancelar_cita_portal_test.sql`; `portal_tratamientos_estructural_test.sql`; `CambiarPasswordDialog.test.tsx`; `OlvidePasswordDialog.test.tsx`; `portal-acceso/index.test.ts`; `portal-olvide-password/index.test.ts` |
-| Campana de notificaciones (personal y portal) + leídas/no leídas | Alertas por rol, marcar leída al navegar, persistencia en localStorage | ninguna — candidato para la próxima pasada (ver "Qué queda sin cubrir") |
+| Campana de notificaciones (personal y portal) + leídas/no leídas | Alertas por rol, marcar leída al navegar, persistencia en localStorage | `layout/notificaciones.test.ts`; `portal/notificaciones.test.ts`; `lib/notificacionesLeidas.test.ts` |
+| Navegación por rol (RI-002/SRS 3.8) | Cada rol ve exactamente los módulos que le corresponden | `layout/modulos.test.ts` |
+| Agregación del Dashboard (Fase 6) | KPIs por rol (citas de hoy, ingresos, stock, órdenes, facturas pendientes) | `modules/dashboard/api.test.ts` |
 
 ## 2. Pruebas de regresión
 
@@ -59,7 +62,7 @@ pensada específicamente para que ese bug no pueda volver a colarse en silencio.
 | `fn_auditar_cambio` reventaba con `record "new" has no field...` al sembrar `parametro_sistema` | Acceso a `new.<campo>` directo en un trigger compartido entre tablas con columnas distintas | `fn_auditar_cambio_test.sql` **(nuevo)** |
 | Fechas de vacunación/examen del timeline retrocedían un día en husos detrás de UTC | Formatear una columna `date` (vía `timestamptz` a medianoche UTC) con la hora local del navegador | `frontend/src/lib/fechas.test.ts` **(nuevo)**, sobre `soloFechaLocal` extraída de `EventoHistorialItem.tsx` |
 | La sesión se perdía al cambiar de pestaña (personal y portal) | `onAuthStateChange` reaccionaba a cualquier evento (`TOKEN_REFRESHED`/`INITIAL_SESSION` redundante), no solo a un cambio real de usuario | sin prueba automatizada — no se pudo forzar la condición exacta en el entorno de prueba (ver CLAUDE.md, limitación documentada explícitamente) |
-| `useDisponibilidadCita` no recargaba al reabrir el diálogo de nueva cita para el mismo veterinario/día | Dependencias del efecto no incluían nada que cambiara en cada apertura | sin prueba automatizada dedicada |
+| `useDisponibilidadCita` no recargaba al reabrir el diálogo de nueva cita para el mismo veterinario/día | Dependencias del efecto no incluían nada que cambiara en cada apertura | `modules/agenda/useDisponibilidadCita.test.ts` **(nuevo)** — cierra/reabre con el mismo veterinario/fecha y confirma que sí vuelve a consultar |
 | `service_role` no recibía `GRANT` automático sobre tablas nuevas | El privilegio SQL se comprueba antes que RLS; versiones recientes del CLI no lo dan gratis | cubierto indirectamente por `portal-acceso/index.test.ts` (ejercita la Edge Function real contra el stack local) |
 | XSS en el HTML de los correos de credenciales (`nombrePropietario` con `<script>`) | Interpolación sin escapar en la plantilla del correo | `_shared/portalPassword.test.ts` (regresión de XSS explícita sobre `plantillaHtml`) |
 | Enumeración de cuentas vía "olvidé mi contraseña" | — (propiedad de diseño, no un bug corregido) | `portal-olvide-password/index.test.ts` (correo existente vs. inexistente → misma respuesta) |
@@ -75,7 +78,7 @@ Verificaciones de límites de seguridad/arquitectura, no de un requisito funcion
 | Funciones `SECURITY DEFINER` comprueban el rol ellas mismas (no confían en que RLS ya filtró) | `fn_emitir_factura`, `fn_conceptos_facturables`, `admin-usuarios`, `portal-acceso`, `fn_cancelar_cita_portal` — verificado por `curl`/pgTAP caso por caso; `fn_cancelar_cita_portal_test.sql` y `portal-acceso/index.test.ts` cubren dos de ellas |
 | Numeración de factura (`seq_factura_numero`) no reutiliza números aunque salte huecos | Verificado manualmente (RN-016); sin prueba automatizada |
 | Ninguna tabla tiene política `DELETE` (RF-033, sin borrado físico) | Verificado manualmente tabla por tabla; sin prueba automatizada que lo confirme de una sola vez |
-| `fn_emitir_factura` es atómica (RES-07/RNF-005) | Verificado por `curl`: una línea inválida revierte la cabecera completa; sin prueba pgTAP dedicada |
+| `fn_emitir_factura` es atómica (RES-07/RNF-005) | `supabase/tests/fn_emitir_factura_integration.test.ts` **(nuevo)** — una línea inválida no deja una cabecera de factura huérfana |
 
 ## Qué queda deliberadamente sin cubrir
 
@@ -83,11 +86,16 @@ Mismo criterio "acotado, no todo" que el resto del proyecto (ver CLAUDE.md). No 
 de pendientes urgentes, es una decisión de alcance explícita para que la próxima pasada sepa
 dónde seguir sin adivinar:
 
-- El flujo funcional completo de los Módulos 5 (Facturación) y 7 (Compras) no tiene ninguna
-  prueba automatizada todavía — toda su verificación es manual.
-- La campana de notificaciones (personal y portal) y el estado leída/no leída, agregadas en
-  esta misma sesión, no tienen prueba automatizada — son la pieza más nueva del proyecto.
+- El flujo funcional completo del Módulo 7 (Compras) no tiene ninguna prueba automatizada
+  todavía — toda su verificación es manual. El Módulo 5 (Facturación) ya tiene cubierta su
+  pieza más crítica (`fn_emitir_factura`), pero el resto del flujo (reporte de ingresos,
+  impresión, pagos mixtos) sigue siendo solo manual.
 - Las ~35 políticas RLS restantes fuera de las cubiertas arriba.
-- Los bugs de timing/efectos de React (`useDisponibilidadCita`, el de sesión al cambiar de
-  pestaña) son difíciles de reproducir de forma determinista en una prueba automatizada; se
-  dejan documentados como regresión conocida, no como prueba ejecutable.
+- El bug de sesión al cambiar de pestaña (personal y portal) es difícil de reproducir de forma
+  determinista en una prueba automatizada (depende de que GoTrue decida refrescar el token, algo
+  fuera de control directo del test); se deja documentado como regresión conocida, no como
+  prueba ejecutable — a diferencia de `useDisponibilidadCita`, que si se pudo cubrir.
+- Los componentes/diálogos de alta más grandes (`NuevoPacienteDialog`, `NuevaCitaDialog`,
+  `NuevaConsultaDialog`, `NuevoProductoDialog`, `NuevaOrdenCompraDialog`, `RegistrarPagoDialog`)
+  siguen sin prueba de componente dedicada — esta pasada priorizó lógica pura y hooks (más
+  barato de escribir y mantener) sobre diálogos grandes con mucho estado de formulario.
