@@ -1,0 +1,143 @@
+<svg viewBox="0 0 1400 980" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="980" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="700" y="46" text-anchor="middle" font-size="26" font-weight="700" fill="#0f172a">VetCare — Diagrama de Despliegue</text>
+  <text x="700" y="70" text-anchor="middle" font-size="14" fill="#475569">Vista simplificada</text>
+
+  <!-- ===================== NODO CLIENTE ===================== -->
+  <g>
+    <polygon points="60,180 320,180 350,150 350,420 90,420 60,390" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+    <polygon points="60,180 320,180 350,150 90,150" fill="#e0e7ff" stroke="#4338ca" stroke-width="2"/>
+    <polygon points="320,180 350,150 350,420 320,420" fill="#dde3fb" stroke="#4338ca" stroke-width="2"/>
+
+    <text x="205" y="205" text-anchor="middle" font-size="12" fill="#4338ca" font-style="italic">«device»</text>
+    <text x="205" y="226" text-anchor="middle" font-size="16" font-weight="700" fill="#1e1b4b">Equipo cliente</text>
+
+    <line x1="90" y1="245" x2="320" y2="245" stroke="#4338ca" stroke-width="1"/>
+
+    <rect x="90" y="270" width="230" height="100" rx="10" fill="#ffffff" stroke="#4338ca" stroke-width="1.5"/>
+    <text x="205" y="295" text-anchor="middle" font-size="11" fill="#4338ca" font-style="italic">«artifact»</text>
+    <text x="205" y="318" text-anchor="middle" font-size="15" font-weight="700" fill="#1e1b4b">VetCare SPA</text>
+    <text x="205" y="340" text-anchor="middle" font-size="11.5" fill="#334155">React + MUI</text>
+    <text x="205" y="358" text-anchor="middle" font-size="10.5" fill="#64748b">(navegador web)</text>
+  </g>
+
+  <!-- ===================== GRUPO SUPABASE ===================== -->
+  <rect x="480" y="130" width="880" height="800" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="920" y="160" text-anchor="middle" font-size="15" font-weight="700" fill="#334155">Supabase (Backend as a Service)</text>
+
+  <!-- ===== Entorno LOCAL (activo hoy) ===== -->
+  <g>
+    <polygon points="510,185 1330,185 1330,460 510,460" fill="#f0fdf4" stroke="#15803d" stroke-width="2"/>
+    <polygon points="510,185 1330,185 1330,210 510,210" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+
+    <text x="530" y="230" font-size="15" font-weight="700" fill="#14532d">Entorno local (Docker)</text>
+    <rect x="1180" y="216" width="130" height="22" rx="11" fill="#16a34a"/>
+    <text x="1245" y="231" text-anchor="middle" font-size="11" fill="#ffffff" font-weight="700">ACTIVO HOY</text>
+
+    <!-- componentes -->
+    <g>
+      <rect x="530" y="255" width="180" height="70" rx="8" fill="#ffffff" stroke="#15803d" stroke-width="1.3"/>
+      <text x="620" y="290" text-anchor="middle" font-size="13" font-weight="700" fill="#052e16">Auth</text>
+      <text x="620" y="308" text-anchor="middle" font-size="10" fill="#166534">(GoTrue)</text>
+    </g>
+    <g>
+      <rect x="730" y="255" width="180" height="70" rx="8" fill="#ffffff" stroke="#15803d" stroke-width="1.3"/>
+      <text x="820" y="290" text-anchor="middle" font-size="13" font-weight="700" fill="#052e16">API REST</text>
+      <text x="820" y="308" text-anchor="middle" font-size="10" fill="#166534">(PostgREST)</text>
+    </g>
+    <g>
+      <rect x="930" y="255" width="190" height="70" rx="8" fill="#ffffff" stroke="#15803d" stroke-width="1.3"/>
+      <text x="1025" y="290" text-anchor="middle" font-size="13" font-weight="700" fill="#052e16">Funciones</text>
+      <text x="1025" y="308" text-anchor="middle" font-size="10" fill="#166534">(Edge Functions)</text>
+    </g>
+    <g>
+      <rect x="1140" y="255" width="170" height="70" rx="8" fill="#ffffff" stroke="#64748b" stroke-width="1.3" stroke-dasharray="4 3"/>
+      <text x="1225" y="290" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">Studio</text>
+      <text x="1225" y="308" text-anchor="middle" font-size="10" fill="#475569">(inspección)</text>
+    </g>
+
+    <!-- PostgreSQL -->
+    <g>
+      <ellipse cx="920" cy="365" rx="380" ry="14" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+      <path d="M540,365 L540,415 A380,14 0 0 0 1300,415 L1300,365" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+      <ellipse cx="920" cy="415" rx="380" ry="14" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/>
+      <text x="920" y="396" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">Base de datos (PostgreSQL)</text>
+    </g>
+  </g>
+
+  <!-- conexiones internas dentro del entorno local -->
+  <line x1="620" y1="325" x2="730" y2="352" stroke="#15803d" stroke-width="1.3" marker-end="url(#arrow)"/>
+  <line x1="820" y1="325" x2="855" y2="352" stroke="#15803d" stroke-width="1.3" marker-end="url(#arrow)"/>
+  <line x1="1025" y1="325" x2="1000" y2="352" stroke="#15803d" stroke-width="1.3" marker-end="url(#arrow)"/>
+
+  <!-- ===== Entorno CLOUD (pendiente) ===== -->
+  <g opacity="0.92">
+    <polygon points="510,495 1330,495 1330,800 510,800" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 5"/>
+    <polygon points="510,495 1330,495 1330,520 510,520" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 5"/>
+
+    <text x="530" y="540" font-size="15" font-weight="700" fill="#334155">Supabase Cloud (alojado)</text>
+    <rect x="1120" y="526" width="190" height="22" rx="11" fill="#94a3b8"/>
+    <text x="1215" y="541" text-anchor="middle" font-size="11" fill="#ffffff" font-weight="700">PENDIENTE DE VINCULAR</text>
+
+    <g>
+      <rect x="530" y="570" width="220" height="60" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 3"/>
+      <text x="640" y="606" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">Auth</text>
+    </g>
+    <g>
+      <rect x="770" y="570" width="220" height="60" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 3"/>
+      <text x="880" y="606" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">API REST</text>
+    </g>
+    <g>
+      <rect x="1010" y="570" width="280" height="60" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 3"/>
+      <text x="1150" y="606" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">Funciones + PostgreSQL</text>
+    </g>
+
+    <text x="530" y="680" font-size="12" fill="#64748b">Mismo stack gestionado por Supabase — se activa vinculando el proyecto y aplicando las migraciones.</text>
+    <text x="530" y="750" font-size="11" fill="#94a3b8" font-style="italic">Nunca usar datos de prueba en este entorno.</text>
+  </g>
+
+  <!-- ===================== FLECHAS CLIENTE -> ENTORNOS ===================== -->
+  <path d="M350,300 C420,300 440,300 505,290" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="425" y="283" text-anchor="middle" font-size="11.5" fill="#1e293b" font-weight="600">HTTPS</text>
+
+  <path d="M350,370 C420,430 440,470 505,600" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowDashed)"/>
+  <text x="450" y="500" text-anchor="middle" font-size="11.5" fill="#475569" font-weight="600">HTTPS</text>
+
+  <!-- ===================== LEYENDA ===================== -->
+  <g>
+    <rect x="60" y="460" width="360" height="230" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="80" y="487" font-size="13" font-weight="700" fill="#1e293b">Leyenda</text>
+
+    <polygon points="80,500 130,500 138,493 138,522 88,522 80,515" fill="#eef2ff" stroke="#4338ca" stroke-width="1.3"/>
+    <text x="150" y="515" font-size="10.5" fill="#334155">Nodo físico</text>
+
+    <polygon points="80,538 138,538 138,560 80,560" fill="#f0fdf4" stroke="#15803d" stroke-width="1.3"/>
+    <text x="150" y="553" font-size="10.5" fill="#334155">Entorno de ejecución</text>
+
+    <rect x="80" y="572" width="58" height="26" rx="6" fill="#ffffff" stroke="#15803d" stroke-width="1.3"/>
+    <text x="150" y="589" font-size="10.5" fill="#334155">Componente de software</text>
+
+    <ellipse cx="109" cy="622" rx="29" ry="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.3"/>
+    <path d="M80,622 L80,632 A29,8 0 0 0 138,632 L138,622" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.3"/>
+    <text x="150" y="630" font-size="10.5" fill="#334155">Base de datos</text>
+
+    <line x1="80" y1="655" x2="138" y2="655" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="150" y="659" font-size="10.5" fill="#334155">Activo hoy</text>
+
+    <line x1="80" y1="675" x2="138" y2="675" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowDashed)"/>
+    <text x="150" y="679" font-size="10.5" fill="#334155">Objetivo (pendiente)</text>
+  </g>
+
+  <text x="80" y="820" font-size="10.5" fill="#94a3b8">VetCare · Estado al 2026-08-26</text>
+</svg>
