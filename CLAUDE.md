@@ -1542,3 +1542,106 @@ tarjetas en su lugar; los tres diálogos abren a 375×812 exactos con `border-ra
 tabla de conceptos de factura con `overflow-x: auto`. En viewport de escritorio (1280px), con
 `recepcion@vetcare.local`, el diálogo "Nuevo paciente" (staff, no `fullScreen`) mantiene
 `border-radius: 32px` — sin regresión fuera del portal. `npm run build` limpio.
+
+### Cuatro mejoras de experiencia del portal (2026-08-26)
+
+Pedido explícito del cliente tras discutir qué agregaría más valor al Portal: cambiar
+contraseña, ficha de mascota con vacunas **y tratamientos**, cancelar cita propia, imprimir
+comprobante de factura. El punto de tratamientos **amplía deliberadamente RN-006**
+("Únicamente el rol Veterinario registra y consulta información clínica") — confirmado
+explícitamente con el usuario, mismo peso que las ampliaciones de Módulos 6/7/8. Se expone
+**solo `tratamiento`** (con `motivo`/`fecha_hora`/`peso_kg` de contexto) — **nunca**
+`diagnóstico` ni `hallazgos`, que la nueva vista ni siquiera selecciona (verificado por API:
+pedir la columna `diagnostico` a `v_tratamientos_portal` da `42703, column ... does not
+exist`, no un `403` — la restricción está en la forma de la vista, no solo en RLS).
+
+**Migración `20260826144549_tratamientos_y_cancelacion_portal.sql`** — dos piezas nuevas:
+
+- **`v_tratamientos_portal`**: calcada de `v_carnet_portal` (Fase 5) — sin
+  `security_invoker` (la RLS de `consulta` es staff-only, con `security_invoker` devolvería
+  vacío), autoacotada con `where paciente.id_propietario = fn_propietario_actual()`, y
+  además `tratamiento is not null` (una consulta sin tratamiento prescrito no aporta nada a
+  esta sección).
+- **`fn_cancelar_cita_portal(p_id_cita)`**: deliberadamente **no** se agregó una política RLS
+  `UPDATE` directa sobre `cita` para el portal — un `WITH CHECK` solo puede validar la fila
+  *resultante* (dueño + `estado='cancelada'`), no puede impedir que la misma sentencia
+  `PATCH` cambie además `motivo` o el horario en el mismo body. En su lugar, una función
+  `SECURITY DEFINER` que solo toca la columna `estado`, con una sentencia SQL fija (mismo
+  criterio que `fn_emitir_factura`/`fn_conceptos_facturables`: cruzar un límite de forma
+  angosta y auditable, no abrir la tabla entera). Rechaza con un mensaje claro si la cita no
+  es del propietario, o si ya no está en `'solicitada'`/`'programada'`. El `EXCLUDE` de
+  solapamiento (RN-004, acotado a `estado in ('programada','atendida')` desde la Fase 5)
+  libera el horario solo, sin lógica adicional.
+
+**Cambiar contraseña — sin migración, sin Edge Function.** `CambiarPasswordDialog.tsx`
+(nuevo, en el menú del avatar de `PortalLayout.tsx`) usa
+`supabase.auth.updateUser({ password })` directo — opera con el JWT propio de la sesión,
+`auth.email.secure_password_change = false` en `config.toml` confirma que no hace falta
+pedir la contraseña actual.
+
+**Bug real, encontrado y corregido durante la verificación de "Cambiar contraseña" —
+`App.tsx` gateaba TODO `<Routes>` (incluida la rama `/portal/*`) detrás del `cargando` del
+`AuthProvider` de *personal*.** Síntoma: la contraseña sí cambiaba (confirmado por API —
+login con la vieja fallaba, con la nueva funcionaba), pero el mensaje de éxito del diálogo
+nunca llegaba a verse; el diálogo se cerraba solo un instante después. Causa raíz,
+encontrada instrumentando `onAuthStateChange` (no adivinada): `AuthProvider` (personal) y
+`PortalAuthProvider` comparten el **mismo** cliente de Supabase (mismo `auth.users`, ver
+`PortalAuthContext.tsx` — decisión de arquitectura de la Fase 5), así que cualquier evento de
+auth en una sesión de **portal** (`USER_UPDATED` al llamar `updateUser()`, y un
+`INITIAL_SESSION` extra que GoTrue reemite después de esa misma mutación, confirmado con
+`console.log` temporal) también dispara el listener de `AuthProvider` de personal — que
+respondía con su propio `setCargando(true)`, sin filtrar por evento. Como
+`App.tsx` hacía `if (cargando) return <PantallaCargando />` de forma incondicional, eso
+desmontaba **toda** la app, incluido `PortalAuthProvider` (resetea su estado) y cualquier
+diálogo abierto bajo esa rama — aunque `PortalApp.tsx` ya tiene su propio loader con el
+`cargando` del contexto de portal, nunca llegaba a usarse porque `App()` ya había cortado el
+árbol más arriba. Corregido en dos capas, ambas necesarias:
+
+- `App.tsx`: `if (cargando && !location.pathname.startsWith('/portal')) return
+  <PantallaCargando />` — el `cargando` de personal ya no gatea la rama del portal, que
+  tiene su propio loader independiente.
+- `PortalAuthContext.tsx`: el listener de `onAuthStateChange` ahora compara
+  `session.user.id` contra un `useRef` del usuario ya cargado, no el nombre del evento —
+  más robusto que enumerar `TOKEN_REFRESHED`/`USER_UPDATED` (que fue el primer intento y no
+  alcanzó, porque no cubría el `INITIAL_SESSION` redundante). Si sigue siendo el mismo
+  usuario, solo se refresca el objeto `session` (token nuevo), sin re-pedir el perfil ni
+  mostrar el loader de pantalla completa.
+
+Patrón a tener presente para cualquier función futura que dispare un evento de Supabase Auth
+desde una sesión de portal: **el listener de personal también lo recibe**, porque comparten
+cliente — cualquier handler de `onAuthStateChange` en este proyecto debe filtrar por si el
+usuario realmente cambió, no reaccionar a cualquier evento.
+
+**Ficha de mascota reorganizada** (`MascotasPortalPage.tsx`): antes el diálogo solo mostraba
+el carnet de vacunas; ahora encabeza con los datos completos ya disponibles en
+`PacienteConFicha` (especie, raza, sexo, color, edad, fecha de nacimiento — sin pedir nada
+nuevo al servidor) y agrega, debajo de "Vacunas", una sección "Tratamientos" sobre
+`listarTratamientosPorPaciente`.
+
+**Cancelar cita** (`CitasPortalPage.tsx`): botón "Cancelar" (tarjeta en móvil, columna nueva
+en la tabla de escritorio) cuando el estado es `'solicitada'` o `'programada'`, con
+confirmación inline (mismo patrón `Alert` + Sí/No de `CitaDetalleDialog.tsx` en el lado de
+personal, sin abrir un diálogo nuevo).
+
+**Imprimir factura** (`FacturasPortalPage.tsx`): mismo mecanismo que RI-005 en
+`FacturaDetalleDialog.tsx` (staff) — el bloque `#comprobante-factura` ya existente en la
+hoja `@media print` de `index.css` se reutiliza tal cual, sin CSS nuevo; el encabezado del
+comprobante impreso usa `sesion.propietario` (nombres/identificación) del propio
+`PortalAuthContext`, ya que `EstadoFactura` no trae el propietario embebido como sí lo hace
+`FacturaListada` en el lado de personal.
+
+**Verificado** por API con el JWT de `propietario@vetcare.local`: `v_tratamientos_portal`
+devuelve solo `motivo/tratamiento/fecha_hora/peso_kg` (pedir `diagnostico` da `42703`, la
+columna no existe en la vista); vacía para `recepcion@vetcare.local`.
+`fn_cancelar_cita_portal` sobre una cita propia `'programada'` → éxito, `estado` pasa a
+`cancelada`; sobre esa misma cita otra vez → `"Esta cita ya no se puede cancelar."`; sobre
+una cita de otro propietario → `"Esta cita no existe o no te pertenece."` (mensaje distinto,
+confirma que la comprobación de dueño y la de estado son casos separados). En navegador con
+esa cuenta: cambiar contraseña (con el bug de `App.tsx` ya corregido) muestra la confirmación
+sin que la página se recargue; ficha de Toby muestra datos completos + vacunas + tratamientos
+sin diagnóstico/hallazgos en ningún lado; cancelar una cita `'programada'` la deja
+`Cancelada` sin botón residual; "Imprimir o guardar PDF" arma correctamente el bloque
+`#comprobante-factura` y dispara `window.print()`. Regresión: `recepcion@vetcare.local` sigue
+viendo su dashboard normalmente (el fix de `App.tsx` no afecta rutas de personal). `npm run
+build` limpio. Datos de prueba (citas insertadas a mano para probar cancelación) se
+revirtieron después.

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Backdrop, CircularProgress } from '@mui/material';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
@@ -36,8 +36,23 @@ function InicioPorRol() {
 
 export default function App() {
   const { cargando, sesion } = useAuth();
+  const location = useLocation();
 
-  if (cargando) return <PantallaCargando />;
+  // Bug real encontrado probando "Cambiar contraseña" del portal (CLAUDE.md
+  // seccion 14): App() gateaba TODO el arbol de <Routes> -- incluida la rama
+  // /portal/*, que no depende en nada de la sesion de personal -- detras del
+  // "cargando" del AuthProvider de personal. El AuthProvider de personal y
+  // PortalAuthProvider comparten el MISMO cliente de Supabase (mismo
+  // auth.users, ver PortalAuthContext.tsx), asi que cualquier evento de auth
+  // en una sesion de portal (updateUser(), un refresh de token) tambien
+  // notificaba al listener de personal, que respondia con su propio
+  // "cargando=true" -- eso desmontaba App() entero, incluido
+  // PortalAuthProvider, reseteando su estado y cualquier dialogo de esa rama
+  // que estuviera abierto (el mensaje de "contraseña actualizada" nunca
+  // llegaba a verse pese a que el cambio si se aplicaba). PortalApp.tsx ya
+  // tiene su propio loader con el cargando de PortalAuthContext -- el de
+  // personal no debe aplicar ahi.
+  if (cargando && !location.pathname.startsWith('/portal')) return <PantallaCargando />;
 
   return (
     <Routes>

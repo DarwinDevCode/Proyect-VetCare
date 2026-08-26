@@ -359,6 +359,19 @@ export interface VacunaCarnetPortal {
   proxima_fecha: string | null;
 }
 
+// Fila de v_tratamientos_portal: ampliacion posterior de RN-006 confirmada
+// explicitamente con el cliente, ver CLAUDE.md seccion 14. Expone SOLO
+// tratamiento (con motivo/fecha/peso de contexto) -- nunca diagnostico ni
+// hallazgos, que la vista ni siquiera selecciona.
+export interface TratamientoPortal {
+  id_paciente: number;
+  id_consulta: number;
+  fecha_hora: string;
+  motivo: string;
+  tratamiento: string;
+  peso_kg: number | null;
+}
+
 // Un concepto a facturar tal como lo devuelve fn_conceptos_facturables (RF-028) o
 // como lo escribe el usuario para un servicio suelto.
 export interface ConceptoFacturable {

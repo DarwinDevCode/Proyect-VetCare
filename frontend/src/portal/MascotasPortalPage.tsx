@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Divider,
   Grid,
   IconButton,
   Stack,
@@ -18,13 +19,15 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import PetsIcon from '@mui/icons-material/Pets';
 import dayjs from 'dayjs';
-import type { PacienteConFicha, VacunaCarnetPortal } from '../types/dominio';
-import { listarCarnetPorPaciente, listarMisMascotas } from './api';
+import type { PacienteConFicha, TratamientoPortal, VacunaCarnetPortal } from '../types/dominio';
+import { listarCarnetPorPaciente, listarMisMascotas, listarTratamientosPorPaciente } from './api';
 import { mensajeError } from '../lib/errors';
 import { calcularEdadTexto } from '../modules/pacientes/edad';
 
-// RF-044: mascotas propias + su carnet de vacunas. Sin diagnostico, hallazgos ni
-// tratamiento -- RN-006 sigue intacto tambien en el portal (v_carnet_portal).
+// RF-044: mascotas propias + carnet de vacunas + tratamientos. Este ultimo
+// amplia RN-006 deliberadamente (confirmado con el cliente, ver CLAUDE.md
+// seccion 14) -- SOLO tratamiento, nunca diagnostico ni hallazgos, que
+// v_tratamientos_portal ni siquiera selecciona.
 export function MascotasPortalPage() {
   const theme = useTheme();
   const esMovil = useMediaQuery(theme.breakpoints.down('sm'));
@@ -34,7 +37,8 @@ export function MascotasPortalPage() {
 
   const [seleccionada, setSeleccionada] = useState<PacienteConFicha | null>(null);
   const [carnet, setCarnet] = useState<VacunaCarnetPortal[]>([]);
-  const [cargandoCarnet, setCargandoCarnet] = useState(false);
+  const [tratamientos, setTratamientos] = useState<TratamientoPortal[]>([]);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   useEffect(() => {
     listarMisMascotas()
@@ -45,11 +49,20 @@ export function MascotasPortalPage() {
 
   useEffect(() => {
     if (!seleccionada) return;
-    setCargandoCarnet(true);
-    listarCarnetPorPaciente(seleccionada.id_paciente)
-      .then(setCarnet)
-      .catch(() => setCarnet([]))
-      .finally(() => setCargandoCarnet(false));
+    setCargandoDetalle(true);
+    Promise.all([
+      listarCarnetPorPaciente(seleccionada.id_paciente),
+      listarTratamientosPorPaciente(seleccionada.id_paciente),
+    ])
+      .then(([v, t]) => {
+        setCarnet(v);
+        setTratamientos(t);
+      })
+      .catch(() => {
+        setCarnet([]);
+        setTratamientos([]);
+      })
+      .finally(() => setCargandoDetalle(false));
   }, [seleccionada]);
 
   return (
@@ -93,32 +106,88 @@ export function MascotasPortalPage() {
         ))}
       </Grid>
 
-      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="xs" fullWidth fullScreen={esMovil}>
+      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="sm" fullWidth fullScreen={esMovil}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
-          Carnet de vacunas · {seleccionada?.nombre}
+          {seleccionada?.nombre}
           <IconButton sx={{ ml: 'auto' }} onClick={() => setSeleccionada(null)}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          {!cargandoCarnet && carnet.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              Sin vacunas registradas todavía.
-            </Typography>
-          )}
-          <Stack spacing={1.5}>
-            {carnet.map((v) => (
-              <Box key={v.id_vacunacion}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {v.producto}
+          {seleccionada && (
+            <Stack spacing={3}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {seleccionada.especie.nombre}
+                  {seleccionada.raza ? ` · ${seleccionada.raza.nombre}` : ' · Mestizo'} ·{' '}
+                  {seleccionada.sexo === 'M' ? 'Macho' : 'Hembra'}
+                  {seleccionada.color ? ` · ${seleccionada.color}` : ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Aplicada: {dayjs(v.fecha_aplicacion).format('DD/MM/YYYY')}
-                  {v.proxima_fecha ? ` · Próxima: ${dayjs(v.proxima_fecha).format('DD/MM/YYYY')}` : ''}
+                  {calcularEdadTexto(seleccionada.fecha_nacimiento)}
+                  {seleccionada.fecha_nacimiento
+                    ? ` · Nació el ${dayjs(seleccionada.fecha_nacimiento).format('DD/MM/YYYY')}`
+                    : ''}
                 </Typography>
               </Box>
-            ))}
-          </Stack>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+                  Vacunas
+                </Typography>
+                {!cargandoDetalle && carnet.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Sin vacunas registradas todavía.
+                  </Typography>
+                )}
+                <Stack spacing={1.5}>
+                  {carnet.map((v) => (
+                    <Box key={v.id_vacunacion}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {v.producto}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Aplicada: {dayjs(v.fecha_aplicacion).format('DD/MM/YYYY')}
+                        {v.proxima_fecha ? ` · Próxima: ${dayjs(v.proxima_fecha).format('DD/MM/YYYY')}` : ''}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+                  Tratamientos
+                </Typography>
+                {!cargandoDetalle && tratamientos.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Sin tratamientos registrados todavía.
+                  </Typography>
+                )}
+                <Stack spacing={1.5}>
+                  {tratamientos.map((t) => (
+                    <Box key={t.id_consulta}>
+                      <Typography variant="body2" color="text.secondary">
+                        {dayjs(t.fecha_hora).format('DD/MM/YYYY')} · {t.motivo}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {t.tratamiento}
+                      </Typography>
+                      {t.peso_kg != null && (
+                        <Typography variant="body2" color="text.secondary">
+                          Peso registrado: {t.peso_kg} kg
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+          )}
         </DialogContent>
       </Dialog>
     </Box>
