@@ -64,6 +64,18 @@ export function EventoHistorialItem({
                 Tratamiento: {interpretado.tratamiento}
               </Typography>
             )}
+            {(interpretado.temperaturaC !== null ||
+              interpretado.frecuenciaCardiacaLpm !== null ||
+              interpretado.frecuenciaRespiratoriaRpm !== null) && (
+              <Typography variant="body2" color="text.secondary">
+                Signos vitales:
+                {interpretado.temperaturaC !== null ? ` ${interpretado.temperaturaC}°C` : ''}
+                {interpretado.frecuenciaCardiacaLpm !== null ? ` · ${interpretado.frecuenciaCardiacaLpm} lpm` : ''}
+                {interpretado.frecuenciaRespiratoriaRpm !== null
+                  ? ` · ${interpretado.frecuenciaRespiratoriaRpm} rpm`
+                  : ''}
+              </Typography>
+            )}
             {consumos.length > 0 && (
               <Box sx={{ mt: 1 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>

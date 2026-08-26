@@ -10,8 +10,10 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { crearVacunacion, listarProductosVacuna, type ProductoVacuna } from './api';
+import dayjs from 'dayjs';
+import { crearVacunacion, listarProductosVacuna, obtenerProximaVacuna, type ProductoVacuna } from './api';
 import { mensajeError } from '../../lib/errors';
+import type { VacunaProxima } from '../../types/dominio';
 
 interface Props {
   idPaciente: number;
@@ -31,6 +33,9 @@ export function NuevaVacunacionDialog({ idPaciente, idConsulta, abierto, onCerra
   const [idProducto, setIdProducto] = useState<number | ''>('');
   const [dosis, setDosis] = useState('');
   const [lote, setLote] = useState('');
+  // RF-041: referencia de ultima/proxima aplicacion de la vacuna elegida para este
+  // paciente -- solo informativa, no bloquea ni prellena nada.
+  const [proximaVacuna, setProximaVacuna] = useState<VacunaProxima | null>(null);
 
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
@@ -41,12 +46,27 @@ export function NuevaVacunacionDialog({ idPaciente, idConsulta, abierto, onCerra
     setIdProducto('');
     setDosis('');
     setLote('');
+    setProximaVacuna(null);
     setErrores({});
     setErrorGeneral(null);
     listarProductosVacuna()
       .then(setProductos)
       .catch((err) => setErrorGeneral(mensajeError(err)));
   }, [abierto]);
+
+  useEffect(() => {
+    if (!idProducto) {
+      setProximaVacuna(null);
+      return;
+    }
+    let vigente = true;
+    obtenerProximaVacuna(idPaciente, idProducto)
+      .then((resultado) => vigente && setProximaVacuna(resultado))
+      .catch(() => vigente && setProximaVacuna(null));
+    return () => {
+      vigente = false;
+    };
+  }, [idPaciente, idProducto]);
 
   function validar(): boolean {
     const nuevosErrores: Record<string, string> = {};
@@ -104,6 +124,13 @@ export function NuevaVacunacionDialog({ idPaciente, idConsulta, abierto, onCerra
               </MenuItem>
             ))}
           </TextField>
+
+          {proximaVacuna && (
+            <Alert severity="info">
+              Última aplicación: {dayjs(proximaVacuna.ultima_aplicacion).format('DD/MM/YYYY')}.
+              Próxima dosis sugerida: {dayjs(proximaVacuna.proxima_fecha).format('DD/MM/YYYY')}.
+            </Alert>
+          )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField

@@ -1,7 +1,15 @@
 import type { EventoHistorial, TipoEventoHistorial } from '../../types/dominio';
 
 export type EventoInterpretado =
-  | { tipo: 'consulta'; motivo: string; diagnostico: string; tratamiento: string | null }
+  | {
+      tipo: 'consulta';
+      motivo: string;
+      diagnostico: string;
+      tratamiento: string | null;
+      temperaturaC: number | null;
+      frecuenciaCardiacaLpm: number | null;
+      frecuenciaRespiratoriaRpm: number | null;
+    }
   | { tipo: 'vacunacion'; producto: string }
   | {
       tipo: 'examen';
@@ -25,6 +33,9 @@ export function interpretarEvento(evento: EventoHistorial): EventoInterpretado {
         motivo: evento.resumen,
         diagnostico: evento.diagnostico ?? '',
         tratamiento: evento.tratamiento,
+        temperaturaC: evento.temperatura_c,
+        frecuenciaCardiacaLpm: evento.frecuencia_cardiaca_lpm,
+        frecuenciaRespiratoriaRpm: evento.frecuencia_respiratoria_rpm,
       };
     case 'vacunacion':
       return { tipo: 'vacunacion', producto: evento.producto_o_examen ?? '' };

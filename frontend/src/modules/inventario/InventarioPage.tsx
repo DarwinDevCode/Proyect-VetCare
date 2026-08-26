@@ -19,8 +19,8 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
-import type { Producto } from '../../types/dominio';
-import { listarProductos } from './api';
+import type { LotePorVencer, Producto } from '../../types/dominio';
+import { listarLotesPorVencer, listarProductos } from './api';
 import { mensajeError } from '../../lib/errors';
 import { NuevoProductoDialog } from './NuevoProductoDialog';
 import { ProductoDetalleDialog } from './ProductoDetalleDialog';
@@ -45,6 +45,7 @@ export function InventarioPage() {
 
   const [texto, setTexto] = useState('');
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [lotesPorVencer, setLotesPorVencer] = useState<LotePorVencer[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,13 +53,15 @@ export function InventarioPage() {
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('todos');
   const [soloAlertas, setSoloAlertas] = useState(false);
+  const [soloPorVencer, setSoloPorVencer] = useState(false);
 
   const recargar = useCallback(async () => {
     setCargando(true);
     setError(null);
     try {
-      const resultado = await listarProductos();
+      const [resultado, lotes] = await Promise.all([listarProductos(), listarLotesPorVencer()]);
       setProductos(resultado);
+      setLotesPorVencer(lotes);
       // Si el detalle de un producto esta abierto, se refresca con los datos nuevos
       // (mismo patron que PacientesPage tras editar una ficha).
       setProductoSeleccionado((actual) =>
@@ -78,15 +81,24 @@ export function InventarioPage() {
   // RF-025: catalogo acotado, sin ilike contra el servidor -- se filtra en memoria.
   // El filtro por tipo y "bajo minimo" (1n) son la misma idea: acotar en memoria lo
   // que ya esta cargado, no una consulta nueva.
+  // Fase 2: productos con al menos un lote por vencer (v_lotes_por_vencer, distinto
+  // de v_alerta_stock -- este es su propio origen de datos, no se deriva de
+  // "productos" como el resto de filtros de esta pagina).
+  const idsProductosPorVencer = useMemo(
+    () => new Set(lotesPorVencer.map((l) => l.id_producto)),
+    [lotesPorVencer],
+  );
+
   const productosFiltrados = useMemo(() => {
     const t = texto.trim().toLowerCase();
     return productos.filter((p) => {
       if (t && !p.nombre.toLowerCase().includes(t) && !p.codigo.toLowerCase().includes(t)) return false;
       if (filtroTipo !== 'todos' && p.tipo !== filtroTipo) return false;
       if (soloAlertas && !(p.activo && p.existencia_actual <= p.nivel_minimo)) return false;
+      if (soloPorVencer && !idsProductosPorVencer.has(p.id_producto)) return false;
       return true;
     });
-  }, [productos, texto, filtroTipo, soloAlertas]);
+  }, [productos, texto, filtroTipo, soloAlertas, soloPorVencer, idsProductosPorVencer]);
 
   // RF-026: se deriva del mismo array ya cargado, no de una consulta aparte a
   // v_alerta_stock (evita una segunda fuente de datos que podria desincronizarse).
@@ -156,6 +168,13 @@ export function InventarioPage() {
           variant={soloAlertas ? 'filled' : 'outlined'}
           onClick={() => setSoloAlertas((a) => !a)}
         />
+        <Chip
+          label="Por vencer"
+          size="small"
+          color={soloPorVencer ? 'warning' : 'default'}
+          variant={soloPorVencer ? 'filled' : 'outlined'}
+          onClick={() => setSoloPorVencer((a) => !a)}
+        />
       </Stack>
 
       {error && (
@@ -168,6 +187,13 @@ export function InventarioPage() {
         <Alert severity="warning" sx={{ mb: 2 }}>
           {alertas.length} producto{alertas.length === 1 ? '' : 's'} con existencia en o por
           debajo del nivel mínimo.
+        </Alert>
+      )}
+
+      {lotesPorVencer.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {lotesPorVencer.length} lote{lotesPorVencer.length === 1 ? '' : 's'} por vencer en los
+          próximos 30 días.
         </Alert>
       )}
 
@@ -191,7 +217,7 @@ export function InventarioPage() {
                   <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
                     <Inventory2Icon fontSize="large" />
                     <Typography variant="body2">
-                      {texto || filtroTipo !== 'todos' || soloAlertas
+                      {texto || filtroTipo !== 'todos' || soloAlertas || soloPorVencer
                         ? 'Sin resultados para esa búsqueda.'
                         : 'Todavía no hay productos registrados.'}
                     </Typography>

@@ -441,11 +441,11 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 y 1
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0, 1 y 2
   completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); quedan
-  las Fases 2 a 6 (signos vitales/próxima dosis/lotes, lista de espera, Compras y Proveedores,
-  Portal del propietario, Dashboard). No commitear ni desplegar ninguna fase sin haberla
-  verificado por separado — es la condición bajo la que el usuario aprobó el plan.
+  las Fases 3 a 6 (lista de espera, Compras y Proveedores, Portal del propietario, Dashboard).
+  No commitear ni desplegar ninguna fase sin haberla verificado por separado — es la condición
+  bajo la que el usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -945,3 +945,71 @@ filtros combinan de forma independiente. `npm run build` limpio.
 
 Con esto se cierra la Fase 1 completa (los cinco módulos existentes + Administración
 reskineados). `npm run build` limpio en todo el módulo.
+
+### Fase 2 — completada: signos vitales, próxima dosis de vacuna, lotes/vencimiento
+
+Tres migraciones pequeñas y aisladas (columnas nullable + dos vistas nuevas), tal como
+preveía el plan — sin tocar `fn_actualizar_existencia` ni ninguna otra regla crítica.
+
+- **`historial_signos_vitales`**: `consulta` + `temperatura_c numeric(4,1)`,
+  `frecuencia_cardiaca_lpm smallint`, `frecuencia_respiratoria_rpm smallint`, todas
+  nullable, con `CHECK > 0`. **Desviación deliberada sobre el plan**: el plan no
+  preveía tocar `v_historial_clinico`, pero sin eso los signos vitales quedarían
+  capturados y nunca visibles en el timeline (RF-020), contradiciendo la propia
+  verificación que el plan exige para esta fase ("verla en el timeline"). Se
+  resolvió con `CREATE OR REPLACE VIEW`, conservando las columnas existentes en el
+  mismo orden (obligatorio en Postgres) y agregando las tres nuevas al final —
+  `null::numeric(4,1)`/`null::smallint` en las ramas de vacunación y examen. RF-040
+  (CLAUDE.md sección 14, catálogo de numeración del plan).
+- **`vacunas_intervalo_y_proxima`**: `producto` + `intervalo_dias integer` nullable
+  (solo tiene sentido para `tipo = 'vacuna'`, pero no se restringió con un `CHECK`
+  a nivel de tabla — se decidió no acoplar la validación de un campo a otro para no
+  repetir la lógica que ya vive en el formulario). Vista `v_vacunas_proximas`
+  (`security_invoker = on`, `GRANT SELECT` explícito a `authenticated` — es un
+  objeto nuevo, posterior al `GRANT ... ALL TABLES` de RLS, mismo problema ya
+  documentado en la sección 9 para `bitacora_auditoria`): por paciente+vacuna,
+  `max(fecha_aplicacion)` + `intervalo_dias` = `proxima_fecha`, recalculada siempre
+  sobre la aplicación más reciente (verificado: una segunda vacunación desplaza la
+  fecha "próxima" sin dejar rastro de la anterior, tal como se espera de una vista
+  derivada). RF-041.
+- **`inventario_lotes_vencimiento`**: `movimiento_inventario` +
+  `lote_codigo varchar(30)`, `fecha_vencimiento date`, nullable, poblados solo en un
+  `'ingreso'`. Vista `v_lotes_por_vencer` (ingresos con vencimiento en los próximos
+  30 días desde `current_date`, igual criterio de "se deriva siempre" que
+  `v_alerta_stock`). Ninguna de las dos columnas participa de
+  `fn_actualizar_existencia` (verificado por API: un ajuste que dejaría existencia
+  negativa se sigue rechazando exactamente igual que antes) — un lote es solo
+  metadata sobre qué ingreso trajo el stock, no una unidad de control aparte.
+
+**UI**: `NuevaConsultaDialog.tsx` agrega una sección "Signos vitales (opcional)" con
+los tres campos, todos opcionales y validados solo si se completan (mismo patrón que
+"Peso"); se ven de inmediato en `EventoHistorialItem.tsx` bajo el diagnóstico, en la
+entrada de tipo consulta del timeline. `NuevaVacunacionDialog.tsx` consulta
+`v_vacunas_proximas` para el paciente+producto en cuanto se elige la vacuna en el
+selector, y muestra un `Alert` informativo ("Última aplicación: ... Próxima dosis
+sugerida: ...") — puramente informativo, no bloquea ni prellena nada; si el producto
+no tiene `intervalo_dias` o nunca se aplicó antes, simplemente no aparece.
+`NuevoProductoDialog.tsx`/`ProductoDetalleDialog.tsx` agregan el campo "Intervalo
+entre dosis" solo cuando `tipo === 'vacuna'` (alta y edición). El formulario de
+"Registrar movimiento" de `ProductoDetalleDialog.tsx` agrega "Lote" y "Fecha de
+vencimiento" solo cuando el tipo elegido es `'ingreso'`; la tabla de movimientos
+suma una columna "Lote / Vencimiento" que resalta en `warning` cuando faltan 30 días
+o menos. `InventarioPage.tsx` agrega un chip "Por vencer" (mismo patrón que "Bajo
+mínimo": se deriva de `v_lotes_por_vencer`, cargada en paralelo con el catálogo, no
+de una consulta encadenada) y un segundo banner de alerta, independiente del de
+stock mínimo.
+
+**Verificado** por `curl` con JWT real: consulta con vitals creada y visible en
+`v_historial_clinico`; dos vacunaciones del mismo producto con `intervalo_dias=365`
+confirmando que `v_vacunas_proximas` recalcula sobre la más reciente; ingreso con
+lote/vencimiento reflejado en `v_lotes_por_vencer` y en `existencia_actual`; un
+ajuste que dejaría existencia negativa sigue rechazado con el mismo mensaje de
+siempre (`fn_actualizar_existencia` intacta). En navegador con `veterinario@vetcare.local`:
+signos vitales visibles en el timeline de Toby, hint de próxima dosis correcto en
+"Nueva vacunación". Con `admin@vetcare.local`: banner "1 lote por vencer en los
+próximos 30 días", chip "Por vencer" aísla correctamente el único producto con un
+lote próximo a vencer, "Intervalo entre dosis: 365 días" visible en el detalle del
+producto, lote/vencimiento visibles en su fila de movimientos. `npm run build`
+limpio (tras un `npm install` para traer `@fontsource/figtree`/`@fontsource/caprasimo`,
+declarados en `package.json` desde la Fase 0 pero ausentes de `node_modules` en este
+entorno — no relacionado con el código de esta fase).
