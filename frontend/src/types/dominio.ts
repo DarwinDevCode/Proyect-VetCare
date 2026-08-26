@@ -346,3 +346,50 @@ export interface ConceptoFacturable {
   cantidad: number;
   precio_unitario: number;
 }
+
+// RF-036 a RF-039 (Fase 4, Módulo 7 nuevo): Compras y Proveedores. Amplía
+// deliberadamente la exclusión de "Compras, órdenes de compra y gestión de
+// proveedores" del SRS -- ver CLAUDE.md sección 14.
+export interface Proveedor {
+  id_proveedor: number;
+  nombre: string;
+  identificacion: string;
+  telefono: string;
+  correo: string | null;
+  direccion: string | null;
+  activo: boolean;
+  fecha_registro: string;
+}
+
+// RN-022: 'recibida' dispara el ingreso automático de inventario, una sola vez
+// (fn_recibir_orden_compra, con guarda old.estado is distinct from 'recibida').
+export type EstadoOrdenCompra = 'borrador' | 'emitida' | 'recibida' | 'cancelada';
+
+export interface OrdenCompra {
+  id_orden_compra: number;
+  id_proveedor: number;
+  estado: EstadoOrdenCompra;
+  observacion: string | null;
+  id_usuario_registro: string;
+  fecha_registro: string;
+}
+
+export interface DetalleOrdenCompra {
+  id_detalle: number;
+  id_orden_compra: number;
+  numero_linea: number;
+  id_producto: number;
+  cantidad: number;
+  precio_unitario: number;
+  // Columna generada (cantidad * precio_unitario), mismo patrón que
+  // detalle_factura.subtotal_linea.
+  subtotal_linea: number;
+}
+
+// Una línea tal como la escribe el usuario para fn_crear_orden_compra (RF-037):
+// atómica, cabecera + líneas en una sola llamada RPC.
+export interface LineaOrdenCompra {
+  id_producto: number;
+  cantidad: number;
+  precio_unitario: number;
+}

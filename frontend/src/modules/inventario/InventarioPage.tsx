@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -18,6 +19,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import type { LotePorVencer, Producto } from '../../types/dominio';
 import { listarLotesPorVencer, listarProductos } from './api';
@@ -42,6 +44,7 @@ const ETIQUETA_FILTRO_TIPO: Record<FiltroTipo, string> = {
 export function InventarioPage() {
   const { sesion } = useAuth();
   const puedeGestionar = sesion?.rol.codigo === 'administrador';
+  const navegar = useNavigate();
 
   const [texto, setTexto] = useState('');
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -123,13 +126,18 @@ export function InventarioPage() {
           </Typography>
         </Box>
         {puedeGestionar && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setDialogoNuevoAbierto(true)}
-          >
-            Nuevo producto
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button startIcon={<ShoppingCartIcon />} onClick={() => navegar('/compras')}>
+              Generar orden de compra
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setDialogoNuevoAbierto(true)}
+            >
+              Nuevo producto
+            </Button>
+          </Stack>
         )}
       </Stack>
 

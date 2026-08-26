@@ -441,11 +441,10 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0, 1, 2 y 3
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 a 4
   completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); quedan
-  las Fases 4 a 6 (Compras y Proveedores, Portal del propietario, Dashboard). No commitear ni
-  desplegar ninguna fase sin haberla verificado por separado — es la condición bajo la que el
-  usuario aprobó el plan.
+  las Fases 5 y 6 (Portal del propietario, Dashboard). No commitear ni desplegar ninguna fase
+  sin haberla verificado por separado — es la condición bajo la que el usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -1075,3 +1074,66 @@ cita creada → la entrada correspondiente pasa a "Atendida" (confirmado en la p
 "Todas"). Con `veterinario@vetcare.local`: pestaña "Lista de espera" visible y con datos,
 sin botón "Nueva entrada" ni columna de acciones — solo lectura, tal como exige RN-006/
 la matriz de acceso del Módulo 2. `npm run build` limpio.
+
+### Fase 4 — completada: Compras y Proveedores (RF-036 a RF-039, Módulo 7 nuevo)
+
+Amplía deliberadamente la exclusión de "Compras, órdenes de compra y gestión de
+proveedores" del SRS — la misma línea que CLAUDE.md sección 2 ya documentaba como
+parte del `.docx` de arquitectura superado ("D6 Proveedores"). Se reabre ahora por
+instrucción explícita del cliente, no porque el SRS final haya dejado de excluirla.
+Exclusivo de Administrador, mismo criterio que el resto de "Inventario y
+Medicamentos" que ya gestiona.
+
+- **Migración `compras_proveedores`**: tres tablas nuevas —`proveedor`,
+  `orden_compra` (ciclo de vida `borrador → emitida → recibida`, o `cancelada`
+  desde cualquiera de las dos primeras), `detalle_orden_compra` (líneas inmutables,
+  mismo criterio que `detalle_factura`, sin política `UPDATE`)— más
+  `movimiento_inventario.id_orden_compra` nullable. Verificado que esa columna
+  nueva no colisiona con `chk_movimiento_origen` (RN-009): la restricción no la
+  menciona, así que un ingreso por compra sigue cumpliendo
+  `tipo_movimiento in ('ingreso','ajuste') and id_consulta is null and
+  id_vacunacion is null` sin cambios.
+- **RN-022 — `fn_recibir_orden_compra`**: trigger `AFTER UPDATE ... WHEN
+  (new.estado = 'recibida' and old.estado is distinct from 'recibida')`, mismo
+  patrón exacto que `fn_vacunacion_descuenta_inventario` (un trigger que inserta
+  `movimiento_inventario` a partir de un evento en otra tabla). **A diferencia**
+  de esa función, esta **no** es `SECURITY DEFINER`: solo Administrador puede
+  actualizar `orden_compra` (RLS) y Administrador ya tiene permiso directo de
+  insertar movimientos `'ingreso'` (`movimiento_insert`, sección 7) — no hay
+  ningún límite de rol que cruzar, así que forzarla a bypasear RLS habría sido
+  privilegio de más, no de menos. La guarda `old.estado is distinct from
+  'recibida'` es la que garantiza "una sola vez" (RN-022): verificado por `curl`
+  que un segundo `UPDATE` a `'recibida'` no duplica los movimientos ni vuelve a
+  sumar existencia.
+- **`fn_crear_orden_compra(id_proveedor, observacion, lineas jsonb)` — RF-037**:
+  cabecera + líneas en una sola llamada RPC, mismo motivo de atomicidad que
+  `fn_emitir_factura` (PostgREST no ofrece transacciones entre peticiones).
+  **Tampoco es `SECURITY DEFINER`**, a diferencia de `fn_emitir_factura`: no
+  necesita cruzar ningún límite de RLS (RN-006 no aplica aquí), así que cada
+  `insert` dentro de la función se sigue evaluando con el rol de quien llama — si
+  no es Administrador, el primer `insert` ya falla por RLS y toda la operación se
+  revierte sin necesitar un chequeo de rol explícito dentro de la función.
+- **UI**: `ComprasPage.tsx` con dos pestañas (`OrdenesCompraTab.tsx`/
+  `ProveedoresTab.tsx`), mismo patrón que la pestaña "Lista de espera" dentro de
+  Agenda — no son rutas separadas porque comparten el mismo contexto (una orden
+  siempre se emite a un proveedor ya registrado). `NuevaOrdenCompraDialog.tsx`
+  sugiere el `precio_unitario` del catálogo al elegir un producto (editable
+  después, igual que el precio de un servicio en `NuevaFacturaDialog`).
+  `OrdenCompraDetalleDialog.tsx` ofrece solo los botones de transición válidos
+  para el estado actual (mismo criterio que `CitaDetalleDialog`: nunca una acción
+  que la base de todas formas rechazaría). Botón "Generar orden de compra" en
+  `InventarioPage.tsx`, exclusivo de Administrador: navega a `/compras` sin
+  intentar prellenar el producto — prellenar requeriría pasar estado entre
+  módulos sin una ruta que lo modele, fuera de alcance de esta pasada.
+
+**Verificado** por `curl` con JWT real: Recepcionista forzando `INSERT` en
+`orden_compra` recibe `403`; `fn_crear_orden_compra` con 2 líneas crea cabecera +
+detalle atómicamente; marcar `'recibida'` sube `existencia_actual` exactamente lo
+esperado (verificado con dos productos a la vez) y genera una fila
+`movimiento_inventario` por línea con `id_orden_compra` poblado; un segundo
+`UPDATE` a `'recibida'` no genera movimientos nuevos (RN-022 intacta). En
+navegador con `admin@vetcare.local`: proveedor creado, orden de compra armada con
+un producto (precio sugerido automáticamente desde el catálogo), transición
+completa borrador → emitida → recibida desde la UI, y `existencia_actual` de
+Amoxicilina 500mg confirmada en 69 (49 + 20) tras recibir. `npm run build`
+limpio.

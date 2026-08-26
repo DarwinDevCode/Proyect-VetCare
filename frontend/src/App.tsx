@@ -7,6 +7,7 @@ import { AppLayout } from './layout/AppLayout';
 import { PacientesPage } from './modules/pacientes/PacientesPage';
 import { AgendaPage } from './modules/agenda/AgendaPage';
 import { InventarioPage } from './modules/inventario/InventarioPage';
+import { ComprasPage } from './modules/compras/ComprasPage';
 import { HistorialPage } from './modules/historial/HistorialPage';
 import { FacturacionPage } from './modules/facturacion/FacturacionPage';
 import { ReportesPage } from './modules/facturacion/ReportesPage';
@@ -81,6 +82,14 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['veterinario']}>
               <HistorialPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/compras"
+          element={
+            <RutaProtegida rolesPermitidos={['administrador']}>
+              <ComprasPage />
             </RutaProtegida>
           }
         />
