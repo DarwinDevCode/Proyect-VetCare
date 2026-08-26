@@ -3,6 +3,7 @@ import PetsIcon from '@mui/icons-material/Pets';
 import EventIcon from '@mui/icons-material/Event';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -45,6 +46,13 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Inventario y Medicamentos',
     icono: Inventory2Icon,
     roles: ['veterinario', 'administrador'],
+    implementado: true,
+  },
+  {
+    ruta: '/compras',
+    etiqueta: 'Compras y Proveedores',
+    icono: ShoppingCartIcon,
+    roles: ['administrador'],
     implementado: true,
   },
   {
