@@ -13,7 +13,12 @@ Vite/frontend, Deno/Edge Functions y Postgres), así que cada uno se corre por s
 |---|---|---|
 | Frontend (Vitest) | `cd frontend && npm run test` | nada adicional |
 | Edge Functions (Deno test) | `deno test --allow-net --allow-env supabase/functions` (desde la raíz) | `supabase start` corriendo (las de integración llaman al stack local real) |
+| Integración de Auth (Deno test) | `deno test --allow-net --allow-env supabase/tests/auth_login_integration.test.ts` (desde la raíz) | `supabase start` corriendo — llama al GoTrue real, no a una Edge Function |
 | Base de datos (pgTAP) | `cd supabase && npx supabase test db --local` | `supabase start` corriendo |
+
+Las pruebas de `frontend/src/test/` (a diferencia del resto de la suite Vitest, co-ubicada junto
+a cada módulo) agrupan escenarios de un mismo flujo transversal — hoy, login de personal y de
+portal — en un solo lugar, a pedido explícito del cliente.
 
 Cada archivo de prueba de base de datos corre dentro de `BEGIN; ... ROLLBACK;`: nunca deja
 datos residuales, aunque cree sus propios fixtures.
@@ -29,6 +34,7 @@ crítico y lo más reciente", no cobertura exhaustiva.
 
 | Módulo | Verificado (manual, ver CLAUDE.md) | Prueba automatizada |
 |---|---|---|
+| Login (personal y portal) | Credenciales incorrectas, campos vacíos, credenciales correctas, "¿Olvidaste tu contraseña?" | `frontend/src/test/LoginPage.test.tsx`; `frontend/src/test/LoginPortalPage.test.tsx`; `supabase/tests/auth_login_integration.test.ts` (contra el Auth real) — ver `ANALISIS_LOGIN.md` |
 | 1. Pacientes y Propietarios | Alta en 2 pasos, detección de duplicado por identificación, ficha con pestañas por rol, búsqueda por mascota/cédula/propietario | `frontend/src/modules/pacientes/edad.test.ts` (cálculo de edad, RF-010) |
 | 2. Agenda y Citas | Disponibilidad en vivo con sugerencias, reprogramar/cancelar, vista semanal, lista de espera, solicitudes desde el portal | `frontend/src/modules/agenda/disponibilidad.test.ts` (chequeo cliente, RF-011); `rn004_solapamiento_citas_test.sql` (garantía real del `EXCLUDE`) |
 | 3. Historial Clínico | Consulta + vínculo con cita, vacunación con descuento automático, examen con resultado diferido, signos vitales, próxima dosis | `fechas.test.ts` (formato de fecha del timeline, ver sección 2); ninguna del flujo clínico completo |
