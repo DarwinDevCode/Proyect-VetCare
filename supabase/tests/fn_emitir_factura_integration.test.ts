@@ -1,11 +1,9 @@
 // Prueba de INTEGRACION: llama a fn_emitir_factura(...) via PostgREST
 // (/rest/v1/rpc/...) con un JWT real, exactamente como lo hace
-// NuevaFacturaDialog.tsx -- no un mock. Cierra un hueco real de la suite
-// (ver supabase/tests/README.md, tabla de pruebas funcionales, fila del
-// Módulo 5: "RN-013/atomicidad de fn_emitir_factura sigue solo verificada
-// por curl"): RN-012 (propietario correcto), RN-013 (no se puede facturar
-// dos veces la misma atención), atomicidad (una línea inválida no deja una
-// cabecera huérfana) y que solo Recepción puede invocarla.
+// NuevaFacturaDialog.tsx -- no un mock. Cubre RN-012 (propietario correcto),
+// RN-013 (no se puede facturar dos veces la misma atención), atomicidad (una
+// línea inválida no deja una cabecera huérfana) y que solo Recepción puede
+// invocarla -- antes solo estaba verificado por curl.
 //
 // No arranca el stack por si sola -- si no esta corriendo (`supabase
 // start`), falla con un error de conexion claro. Correr sola con:

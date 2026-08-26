@@ -1912,12 +1912,10 @@ campana cuenta solo las no leídas. Verificado en navegador (Administrador): not
 fondo `#fff2eb` → clic → navega a `/inventario` → badge pasa a 0 → al reabrir el panel el
 ítem se ve con fondo transparente → persiste tras recargar la página.
 
-**Suite de pruebas — dos regresiones nuevas + un catálogo.** A pedido del cliente
-("pruebas funcionales, de regresión y revisiones técnicas"), se agregó
-`supabase/tests/README.md`: un índice de navegación de todo lo probado en el proyecto
-(funcional, regresión, revisiones técnicas), con qué está automatizado y qué sigue siendo
-solo manual — no reemplaza el detalle de CLAUDE.md, apunta a él. De paso se cerraron dos
-huecos reales de la suite automatizada:
+**Suite de pruebas — dos regresiones nuevas.** A pedido del cliente ("pruebas funcionales, de
+regresión y revisiones técnicas"), se cerraron dos huecos reales de la suite automatizada
+(un catálogo en `supabase/tests/README.md` se probó en el camino, pero el cliente pidió después
+no mantener documentación en `.md` aparte de este archivo, así que no queda):
 
 - `supabase/tests/rf031_propietario_facturado_administrador_test.sql`: regresión del bug de
   RLS de `propietario` vs. RF-031 (sección 9) — Administrador ve un propietario con al menos

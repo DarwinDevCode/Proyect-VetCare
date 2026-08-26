@@ -4,13 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { LoginPage } from '../auth/LoginPage';
 import { AuthProvider } from '../auth/AuthContext';
 
-// Vive en src/test/ (no junto a LoginPage.tsx) a pedido explicito del cliente:
-// las pruebas de los flujos de login (personal y portal, ver
-// LoginPortalPage.test.tsx) quedan agrupadas en un solo lugar en vez de
-// co-ubicadas por modulo, a diferencia del resto de la suite (ver
-// supabase/tests/README.md). Mock en el limite de lib/supabaseClient (no mas
-// arriba): se prueba LoginPage + AuthProvider reales, no un componente
-// aislado -- mismo criterio que el resto de la suite.
+// Mock en el limite de lib/supabaseClient (no mas arriba): se prueba
+// LoginPage + AuthProvider reales, no un componente aislado.
 const { signInMock, getSessionMock, onAuthStateChangeMock } = vi.hoisted(() => ({
   signInMock: vi.fn(),
   getSessionMock: vi.fn(),

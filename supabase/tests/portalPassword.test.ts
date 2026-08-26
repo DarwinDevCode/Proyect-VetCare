@@ -1,6 +1,5 @@
 // Pruebas unitarias (sin red) de las funciones puras de
-// functions/_shared/portalPassword.ts. Vive en supabase/tests/, no junto a
-// la funcion, a pedido explicito del cliente (ver README.md de esta carpeta).
+// functions/_shared/portalPassword.ts.
 // Correr con: deno test --allow-net --allow-env supabase/tests
 // (--allow-net hace falta porque enviarCredencialesPortal en ese mismo
 // archivo importa nodemailer via npm:, aunque esta prueba no la invoque.)
