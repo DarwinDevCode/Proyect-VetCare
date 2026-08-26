@@ -60,6 +60,14 @@ Deno.serve(async (req) => {
   const jwt = authHeader.replace('Bearer ', '');
   if (!jwt) return json({ error: 'Falta el token de autorización.' }, 401);
 
+  // Origin del navegador que llama a esta funcion (mismo origen que sirve la SPA
+  // -- localhost:5173 en dev, el dominio real en produccion). Se usa para armar la
+  // URL completa a /portal/ingresar en el correo de credenciales: una ruta relativa
+  // sin dominio no le sirve de nada al propietario, que la recibe fuera de la app
+  // (bug real, ver CLAUDE.md seccion 14).
+  const origenFrontend = req.headers.get('origin');
+  const urlPortal = origenFrontend ? `${origenFrontend}/portal/ingresar` : null;
+
   // Cliente con el JWT de quien llama: para saber quien es sin saltarse RLS.
   const clienteInvocador = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -136,6 +144,7 @@ Deno.serve(async (req) => {
           nombrePropietario: nombreCompleto,
           password,
           esNuevaCuenta: true,
+          urlPortal,
         });
       } catch {
         // La cuenta NO se revierte por esto: revertir dejaria al propietario sin
@@ -174,6 +183,7 @@ Deno.serve(async (req) => {
           nombrePropietario: nombreCompleto,
           password,
           esNuevaCuenta: false,
+          urlPortal,
         });
       } catch {
         envioCorreoFallido = true;
