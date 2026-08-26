@@ -6,6 +6,7 @@ import {
   Button,
   Chip,
   InputAdornment,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -47,6 +48,9 @@ export function PacientesPage() {
   }, [searchParams]);
   const [fichas, setFichas] = useState<PacienteConFicha[]>([]);
   const [especies, setEspecies] = useState<Especie[]>([]);
+  // Filtro por especie: en memoria sobre lo ya cargado (RF-007 solo busca por
+  // texto en el servidor). No se envia otra consulta a buscarFichas por esto.
+  const [filtroEspecie, setFiltroEspecie] = useState<number | ''>('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +84,10 @@ export function PacientesPage() {
     return () => clearTimeout(temporizador);
   }, [texto, recargar]);
 
+  const fichasFiltradas = filtroEspecie
+    ? fichas.filter((f) => f.id_especie === filtroEspecie)
+    : fichas;
+
   return (
     <Box>
       <Stack
@@ -106,22 +114,38 @@ export function PacientesPage() {
         )}
       </Stack>
 
-      <TextField
-        fullWidth
-        placeholder="Buscar por nombre de la mascota, cédula o nombre del propietario…"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        sx={{ mb: 2, maxWidth: 520 }}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+        <TextField
+          fullWidth
+          placeholder="Buscar por nombre de la mascota, cédula o nombre del propietario…"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          sx={{ maxWidth: 520 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <TextField
+          select
+          label="Especie"
+          value={filtroEspecie}
+          sx={{ minWidth: 160 }}
+          onChange={(e) => setFiltroEspecie(e.target.value ? Number(e.target.value) : '')}
+        >
+          <MenuItem value="">Todas</MenuItem>
+          {especies.map((especie) => (
+            <MenuItem key={especie.id_especie} value={especie.id_especie}>
+              {especie.nombre}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -141,19 +165,21 @@ export function PacientesPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {!cargando && fichas.length === 0 && (
+            {!cargando && fichasFiltradas.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
                     <PetsIcon fontSize="large" />
                     <Typography variant="body2">
-                      {texto ? 'Sin resultados para esa búsqueda.' : 'Todavía no hay pacientes registrados.'}
+                      {texto || filtroEspecie
+                        ? 'Sin resultados para esa búsqueda.'
+                        : 'Todavía no hay pacientes registrados.'}
                     </Typography>
                   </Stack>
                 </TableCell>
               </TableRow>
             )}
-            {fichas.map((ficha) => (
+            {fichasFiltradas.map((ficha) => (
               <TableRow
                 key={ficha.id_paciente}
                 hover

@@ -98,6 +98,29 @@ export async function reprogramarCita(
   return data;
 }
 
+// Resumen de citas de un paciente, para la pestana "Citas" de la ficha
+// (Modulo 1). Mismo nivel de acceso que el resto de Agenda: cita_select ya
+// admite tanto a Recepcionista como a Veterinario, los dos roles que abren
+// PacientesPage -- no hace falta una politica RLS nueva.
+export interface CitaResumen {
+  id_cita: number;
+  fecha_hora_inicio: string;
+  motivo: string | null;
+  estado: Cita['estado'];
+  veterinario: Pick<Usuario, 'nombres' | 'apellidos'>;
+}
+
+export async function listarCitasPorPaciente(idPaciente: number): Promise<CitaResumen[]> {
+  const { data, error } = await supabase
+    .from('cita')
+    .select('id_cita, fecha_hora_inicio, motivo, estado, veterinario:id_veterinario(nombres, apellidos)')
+    .eq('id_paciente', idPaciente)
+    .order('fecha_hora_inicio', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data as unknown as CitaResumen[];
+}
+
 // RF-015/RN-005: cambia de estado, nunca se borra.
 export async function cancelarCita(id: number): Promise<Cita> {
   const { data, error } = await supabase
