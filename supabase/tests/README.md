@@ -12,19 +12,19 @@ Vite/frontend, Deno/Edge Functions y Postgres), así que cada uno se corre por s
 | Ecosistema | Comando | Requiere |
 |---|---|---|
 | Frontend (Vitest) | `cd frontend && npm run test` | nada adicional |
-| Edge Functions (Deno test) | `deno test --allow-net --allow-env supabase/functions` (desde la raíz) | `supabase start` corriendo (las de integración llaman al stack local real) |
-| Integración de Auth (Deno test) | `deno test --allow-net --allow-env supabase/tests/auth_login_integration.test.ts` (desde la raíz) | `supabase start` corriendo — llama al GoTrue real, no a una Edge Function |
-| Integración de facturación (Deno test) | `deno test --allow-net --allow-env supabase/tests/fn_emitir_factura_integration.test.ts` (desde la raíz) | `supabase start` corriendo — deja un puñado de filas de prueba permanentes, ver el encabezado del archivo |
+| Edge Functions + integración (Deno test) | `deno test --allow-net --allow-env supabase/tests` (desde la raíz) | `supabase start` corriendo — la mayoría llama al stack local real; `deno test` ignora los `.sql` de esta misma carpeta, no hace falta filtrarlos |
 | Base de datos (pgTAP) | `cd supabase && npx supabase test db --local` | `supabase start` corriendo |
 
-Toda la suite Vitest vive en `frontend/src/test/`, a pedido explícito del cliente ("todos esos
-test deben estar en la carpeta test") — no co-ubicada junto a cada módulo, que era el patrón
-inicial de los primeros archivos de esta suite. El nombre de archivo indica a qué módulo prueba
-(`agenda-disponibilidad.test.ts`, `dashboard-api.test.ts`, etc.); dos pares de archivos que se
-hubieran llamado igual en su ubicación original (los dos `edad.ts`, y los dos
-`notificaciones.ts` de `layout`/`portal`) se distinguen con ese mismo prefijo
-(`pacientes-edad.test.ts` vs. `historial-edad.test.ts`, `layout-notificaciones.test.ts` vs.
-`portal-notificaciones.test.ts`).
+Toda la suite Vitest vive en `frontend/src/test/`, y toda la suite Deno (Edge Functions +
+integración) vive en `supabase/tests/` junto a las pruebas pgTAP — ninguna co-ubicada junto a su
+módulo o función, que era el patrón inicial de los primeros archivos de ambas suites. Pedido
+explícito del cliente ("todos esos test deben estar en la carpeta test", y luego "¿y en
+supabase?"). El nombre de archivo indica qué prueba (`agenda-disponibilidad.test.ts`,
+`dashboard-api.test.ts`, `portal-acceso.test.ts`, etc.); los pares que se hubieran llamado igual
+en su ubicación original se distinguen con un prefijo del módulo (`pacientes-edad.test.ts` vs.
+`historial-edad.test.ts`, `layout-notificaciones.test.ts` vs. `portal-notificaciones.test.ts`) o,
+para las Edge Functions, con el nombre de la función en vez del genérico `index.test.ts` que
+tenían las tres (`portal-acceso.test.ts`, `portal-olvide-password.test.ts`).
 
 Cada archivo de prueba de base de datos corre dentro de `BEGIN; ... ROLLBACK;`: nunca deja
 datos residuales, aunque cree sus propios fixtures.
@@ -48,7 +48,7 @@ crítico y lo más reciente", no cobertura exhaustiva.
 | 5. Facturación y Reportes | Emisión desde atención o servicio suelto, numeración, pagos mixtos, reporte de ingresos, impresión | `supabase/tests/fn_emitir_factura_integration.test.ts` (RPC real: RN-012/RN-013/RN-014, atomicidad, rol); `frontend/src/test/facturacion-formato.test.ts` |
 | 6. Administración del sistema | Ciclo de vida de cuentas (crear/activar/desactivar/reset), roles, catálogos, parámetros, auditoría | `fn_auditar_cambio_test.sql` (bitácora, ver sección 2) |
 | 7. Compras y Proveedores | Orden de compra borrador→emitida→recibida, descuento automático al recibir, protección contra doble recepción | ninguna |
-| 8. Portal del propietario | Login separado de personal, mis mascotas/citas/facturas, solicitar y cancelar cita, cambiar/recuperar contraseña, imprimir factura | `fn_cancelar_cita_portal_test.sql`; `portal_tratamientos_estructural_test.sql`; `frontend/src/test/CambiarPasswordDialog.test.tsx`; `OlvidePasswordDialog.test.tsx`; `portal-acceso/index.test.ts`; `portal-olvide-password/index.test.ts` |
+| 8. Portal del propietario | Login separado de personal, mis mascotas/citas/facturas, solicitar y cancelar cita, cambiar/recuperar contraseña, imprimir factura | `fn_cancelar_cita_portal_test.sql`; `portal_tratamientos_estructural_test.sql`; `frontend/src/test/CambiarPasswordDialog.test.tsx`; `OlvidePasswordDialog.test.tsx`; `supabase/tests/portal-acceso.test.ts`; `supabase/tests/portal-olvide-password.test.ts` |
 | Campana de notificaciones (personal y portal) + leídas/no leídas | Alertas por rol, marcar leída al navegar, persistencia en localStorage | `frontend/src/test/layout-notificaciones.test.ts`; `portal-notificaciones.test.ts`; `notificacionesLeidas.test.ts` |
 | Navegación por rol (RI-002/SRS 3.8) | Cada rol ve exactamente los módulos que le corresponden | `frontend/src/test/modulos.test.ts` |
 | Agregación del Dashboard (Fase 6) | KPIs por rol (citas de hoy, ingresos, stock, órdenes, facturas pendientes) | `frontend/src/test/dashboard-api.test.ts` |
@@ -68,9 +68,9 @@ pensada específicamente para que ese bug no pueda volver a colarse en silencio.
 | Fechas de vacunación/examen del timeline retrocedían un día en husos detrás de UTC | Formatear una columna `date` (vía `timestamptz` a medianoche UTC) con la hora local del navegador | `frontend/src/test/fechas.test.ts` **(nuevo)**, sobre `soloFechaLocal` extraída de `EventoHistorialItem.tsx` |
 | La sesión se perdía al cambiar de pestaña (personal y portal) | `onAuthStateChange` reaccionaba a cualquier evento (`TOKEN_REFRESHED`/`INITIAL_SESSION` redundante), no solo a un cambio real de usuario | sin prueba automatizada — no se pudo forzar la condición exacta en el entorno de prueba (ver CLAUDE.md, limitación documentada explícitamente) |
 | `useDisponibilidadCita` no recargaba al reabrir el diálogo de nueva cita para el mismo veterinario/día | Dependencias del efecto no incluían nada que cambiara en cada apertura | `frontend/src/test/agenda-useDisponibilidadCita.test.ts` **(nuevo)** — cierra/reabre con el mismo veterinario/fecha y confirma que sí vuelve a consultar |
-| `service_role` no recibía `GRANT` automático sobre tablas nuevas | El privilegio SQL se comprueba antes que RLS; versiones recientes del CLI no lo dan gratis | cubierto indirectamente por `portal-acceso/index.test.ts` (ejercita la Edge Function real contra el stack local) |
-| XSS en el HTML de los correos de credenciales (`nombrePropietario` con `<script>`) | Interpolación sin escapar en la plantilla del correo | `_shared/portalPassword.test.ts` (regresión de XSS explícita sobre `plantillaHtml`) |
-| Enumeración de cuentas vía "olvidé mi contraseña" | — (propiedad de diseño, no un bug corregido) | `portal-olvide-password/index.test.ts` (correo existente vs. inexistente → misma respuesta) |
+| `service_role` no recibía `GRANT` automático sobre tablas nuevas | El privilegio SQL se comprueba antes que RLS; versiones recientes del CLI no lo dan gratis | cubierto indirectamente por `supabase/tests/portal-acceso.test.ts` (ejercita la Edge Function real contra el stack local) |
+| XSS en el HTML de los correos de credenciales (`nombrePropietario` con `<script>`) | Interpolación sin escapar en la plantilla del correo | `supabase/tests/portalPassword.test.ts` (regresión de XSS explícita sobre `plantillaHtml`) |
+| Enumeración de cuentas vía "olvidé mi contraseña" | — (propiedad de diseño, no un bug corregido) | `supabase/tests/portal-olvide-password.test.ts` (correo existente vs. inexistente → misma respuesta) |
 
 ## 3. Revisiones técnicas
 
@@ -80,7 +80,7 @@ Verificaciones de límites de seguridad/arquitectura, no de un requisito funcion
 |---|---|
 | RN-006 sigue intacto en cada ampliación (`v_carnet_portal`, `v_tratamientos_portal`) | `portal_tratamientos_estructural_test.sql` confirma **a nivel de estructura** que la vista de tratamientos ni siquiera tiene columnas `diagnostico`/`hallazgos` — no solo que la política lo bloquee |
 | `GRANT` + RLS (una tabla nueva no hereda privilegios automáticos) | Verificado manualmente cada vez que se agregó una tabla (Módulos 6/7/8, ver CLAUDE.md); sin prueba automatizada genérica que recorra `information_schema` |
-| Funciones `SECURITY DEFINER` comprueban el rol ellas mismas (no confían en que RLS ya filtró) | `fn_emitir_factura`, `fn_conceptos_facturables`, `admin-usuarios`, `portal-acceso`, `fn_cancelar_cita_portal` — verificado por `curl`/pgTAP caso por caso; `fn_cancelar_cita_portal_test.sql` y `portal-acceso/index.test.ts` cubren dos de ellas |
+| Funciones `SECURITY DEFINER` comprueban el rol ellas mismas (no confían en que RLS ya filtró) | `fn_emitir_factura`, `fn_conceptos_facturables`, `admin-usuarios`, `portal-acceso`, `fn_cancelar_cita_portal` — verificado por `curl`/pgTAP caso por caso; `fn_cancelar_cita_portal_test.sql` y `supabase/tests/portal-acceso.test.ts` cubren dos de ellas |
 | Numeración de factura (`seq_factura_numero`) no reutiliza números aunque salte huecos | Verificado manualmente (RN-016); sin prueba automatizada |
 | Ninguna tabla tiene política `DELETE` (RF-033, sin borrado físico) | Verificado manualmente tabla por tabla; sin prueba automatizada que lo confirme de una sola vez |
 | `fn_emitir_factura` es atómica (RES-07/RNF-005) | `supabase/tests/fn_emitir_factura_integration.test.ts` **(nuevo)** — una línea inválida no deja una cabecera de factura huérfana |

@@ -9,7 +9,8 @@
 //
 // No arranca el stack por si sola -- si no esta corriendo (`supabase
 // start`), falla con un error de conexion claro, no un timeout silencioso.
-// Correr con: deno test --allow-net --allow-env supabase/tests/auth_login_integration.test.ts
+// Correr sola con: deno test --allow-net --allow-env supabase/tests/auth_login_integration.test.ts
+// (o junto con el resto: deno test --allow-net --allow-env supabase/tests)
 import { assertEquals, assertExists } from 'jsr:@std/assert@1';
 import { describe, it } from 'jsr:@std/testing@1/bdd';
 

@@ -1,7 +1,9 @@
-// Pruebas de integracion: llaman a la funcion real, corriendo en el stack
-// local (`supabase start`). No arrancan el stack ellas mismas -- si no esta
-// corriendo, fallan con un error de conexion claro, no un timeout silencioso.
-// Correr con: deno test --allow-net --allow-env supabase/functions
+// Pruebas de integracion contra la funcion real (portal-olvide-password),
+// stack local corriendo (`supabase start`). Vive en supabase/tests/, no
+// junto a la funcion, a pedido explicito del cliente (ver README.md de esta
+// carpeta). No arrancan el stack ellas mismas -- si no esta corriendo,
+// fallan con un error de conexion claro, no un timeout silencioso.
+// Correr con: deno test --allow-net --allow-env supabase/tests
 //
 // Usan un propietario sembrado SIN correo/portal (id_propietario 6, "Carlos
 // Alberto" en seed.sql) al que se le asigna temporalmente un correo de

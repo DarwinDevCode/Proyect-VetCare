@@ -8,8 +8,10 @@
 // cabecera huérfana) y que solo Recepción puede invocarla.
 //
 // No arranca el stack por si sola -- si no esta corriendo (`supabase
-// start`), falla con un error de conexion claro. Correr con:
+// start`), falla con un error de conexion claro. Correr sola con:
 // deno test --allow-net --allow-env supabase/tests/fn_emitir_factura_integration.test.ts
+// (o junto con el resto: deno test --allow-net --allow-env supabase/tests --
+// la nota de higiene de datos de abajo aplica igual en ese caso.)
 //
 // Nota de higiene de datos: a diferencia de las pruebas pgTAP (que envuelven
 // todo en BEGIN/ROLLBACK), una prueba HTTP no puede revertir una

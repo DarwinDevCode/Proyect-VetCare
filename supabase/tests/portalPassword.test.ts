@@ -1,9 +1,11 @@
-// Pruebas unitarias (sin red) de las funciones puras de portalPassword.ts.
-// Correr con: deno test --allow-net --allow-env supabase/functions
-// (--allow-net hace falta porque enviarCredencialesPortal en este mismo
+// Pruebas unitarias (sin red) de las funciones puras de
+// functions/_shared/portalPassword.ts. Vive en supabase/tests/, no junto a
+// la funcion, a pedido explicito del cliente (ver README.md de esta carpeta).
+// Correr con: deno test --allow-net --allow-env supabase/tests
+// (--allow-net hace falta porque enviarCredencialesPortal en ese mismo
 // archivo importa nodemailer via npm:, aunque esta prueba no la invoque.)
 import { assertEquals, assertMatch, assertNotMatch } from 'jsr:@std/assert@1';
-import { generarPasswordTemporal, escaparHtml, plantillaHtml } from './portalPassword.ts';
+import { generarPasswordTemporal, escaparHtml, plantillaHtml } from '../functions/_shared/portalPassword.ts';
 
 Deno.test('generarPasswordTemporal respeta la longitud pedida', () => {
   assertEquals(generarPasswordTemporal(12).length, 12);

@@ -1,10 +1,11 @@
-// Pruebas de integracion contra la funcion real, stack local corriendo
-// (`supabase start`). Usa las cuentas de personal sembradas por
-// supabase/seed.sql (solo hace login, no las modifica) y un propietario
-// sembrado sin correo (id_propietario 4 o 6, "Diego"/"Carlos" en el seed) --
-// la llamada sobre el es 'omitido: sin_correo', no crea nada, repetible sin
-// limpieza.
-// Correr con: deno test --allow-net --allow-env supabase/functions
+// Pruebas de integracion contra la funcion real (portal-acceso), stack local
+// corriendo (`supabase start`). Vive en supabase/tests/, no junto a la
+// funcion, a pedido explicito del cliente (ver README.md de esta carpeta).
+// Usa las cuentas de personal sembradas por supabase/seed.sql (solo hace
+// login, no las modifica) y un propietario sembrado sin correo
+// (id_propietario 4 o 6, "Diego"/"Carlos" en el seed) -- la llamada sobre el
+// es 'omitido: sin_correo', no crea nada, repetible sin limpieza.
+// Correr con: deno test --allow-net --allow-env supabase/tests
 import { assertEquals } from 'jsr:@std/assert@1';
 import { describe, it } from 'jsr:@std/testing@1/bdd';
 
