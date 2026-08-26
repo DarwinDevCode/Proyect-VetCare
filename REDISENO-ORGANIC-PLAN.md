@@ -1,13 +1,13 @@
 # Rediseño completo de VetCare — plan de implementación
 
-> **Estado (2026-08-26):** Fases 0, 1 (1a-1e), 2, 3, 4 y 5 **completadas**. Fase 6
-> **aprobada, sin empezar**. Este documento es el plan de implementación completo,
+> **Estado (2026-08-26):** Plan **completo** — las 7 fases (0, 1 con 1a-1e, 2, 3, 4, 5 y 6)
+> están terminadas y verificadas. Este documento queda como referencia histórica del plan
 > tal como se aprobó con el cliente antes de escribir código (sección "Fases de ejecución"
-> actualizada con el estado real de cada fase). El detalle de *qué* se hizo exactamente en
-> cada fase completada, con decisiones tomadas durante la implementación y desviaciones del
-> plan original, está documentado en `CLAUDE.md`, sección 14 — este archivo no lo repite.
-> Para retomar el trabajo en otra sesión: leer `CLAUDE.md` completo primero (fuente de verdad
-> del estado del proyecto), y usar este archivo solo para el plan de las fases pendientes.
+> actualizada con el estado real de cada fase, incluidas las desviaciones deliberadas sobre
+> lo planeado originalmente). El detalle de *qué* se hizo exactamente en cada fase, con las
+> decisiones tomadas durante la implementación, está documentado en `CLAUDE.md`, sección 14
+> — este archivo no lo repite. Para retomar trabajo relacionado en otra sesión: leer
+> `CLAUDE.md` completo primero (fuente de verdad del estado del proyecto).
 
 ## Contexto
 
@@ -210,7 +210,7 @@ CLAUDE.md sección 14 para el detalle real de lo implementado:
 | **3** | Migración 4 (lista de espera) + UI dentro de Agenda (1h, wiring en 1i). | ✅ **Completada** — detalle real en CLAUDE.md §14. |
 | **4** | Migración 5 (Compras y Proveedores) + módulo `modules/compras/` completo. | ✅ **Completada** — detalle real en CLAUDE.md §14. |
 | **5** | Migración 6 (Portal) + Edge Function `portal-acceso` + `frontend/src/portal/*` completo + botón "Dar acceso al portal" en Pacientes. | ✅ **Completada** — la de mayor riesgo arquitectónico del plan. Detalle real (con dos bugs reales encontrados y corregidos) en CLAUDE.md §14. |
-| **6** | Dashboard real (1a): KPIs, agenda del día, accesos rápidos. | ⬜ Pendiente — siguiente fase a ejecutar (última del plan). |
+| **6** | Dashboard real (1a): KPIs, agenda del día, accesos rápidos. | ✅ **Completada** — cierra el plan completo. Detalle real (incluido un bug de entorno real, no de código) en CLAUDE.md §14. |
 
 Razón del orden (por qué cada fase depende de la anterior):
 
@@ -264,9 +264,8 @@ real por cuenta para RLS + navegador con las cuentas de prueba + `npm run build`
   un `insert` de `cita` con `id_veterinario` no nulo o con `id_paciente` ajeno es rechazado;
   en navegador, personal confirma una `'solicitada'` asignando veterinario/horario y se
   fuerza el mismo horario dos veces — la segunda debe fallar con `23P01`, mensaje ya mapeado.
-- **Fase 6**: verificación visual/funcional — cada KPI del dashboard debe coincidir con lo
-  que ya muestran las páginas de origen (ingresos del día = mismo cálculo que
-  `ReporteIngresos.tsx`).
+- **Fase 6** *(completada)*: verificación visual/funcional con las tres cuentas — detalle
+  real (con un bug de entorno real encontrado y resuelto) en CLAUDE.md §14.
 
 ## Archivos por fase (nuevo vs. modificado)
 
@@ -303,17 +302,19 @@ facturas del propietario, `api.ts` identity-scoped). Modificar: `App.tsx` (rama
 (confirmar una `'solicitada'`), `types/dominio.ts` (`EstadoCita` + `'solicitada'`,
 `Propietario.id_usuario_portal`).
 
-**Fase 6** *(pendiente)* — Nuevo: `modules/dashboard/DashboardPage.tsx`, `api.ts`
-(agregaciones cliente-side sobre `cita`/`pago`/`v_alerta_stock`/`lista_espera`). Modificar:
-`App.tsx` (`InicioPorRol` renderiza el dashboard en vez de redirigir), `modulos.ts` (activar
-`implementado: true`).
+**Fase 6** *(completada)* — Nuevo: `modules/dashboard/api.ts` (tres resúmenes, uno por rol,
+componiendo funciones ya existentes de `agenda`/`inventario`/`facturacion`/`compras`),
+`modules/dashboard/DashboardPage.tsx`. Modificar: `App.tsx` (`InicioPorRol` ahora es
+`<Navigate to="/inicio" />`; ruta `/inicio` nueva), `modulos.ts` (entrada "Dashboard",
+primera del array, `ruta: '/inicio'`), `layout/AppLayout.tsx` (campana conectada a
+`producto`), `main.tsx` (`dayjs.locale('es')` activado globalmente). Detalle real,
+incluidas dos precisiones sobre lo planeado aquí (redirect en vez de render directo en
+`"/"`; campana navega a `/inicio` y no a `/inventario`), en CLAUDE.md §14.
 
-## Siguiente paso
+## Plan cerrado
 
-Con Fases 0 a 5 completas y verificadas, la **Fase 6** (última del plan) arranca con:
-`modules/dashboard/DashboardPage.tsx` + `api.ts` (agregaciones cliente-side sobre
-`cita`/`pago`/`v_alerta_stock`/`lista_espera`, todas sobre tablas/vistas ya existentes —
-sin migración nueva), modificar `App.tsx` (`InicioPorRol` renderiza el dashboard en vez de
-redirigir) y `modulos.ts` (activar la entrada "Dashboard", pospuesta desde la Fase 0 por el
-problema de resaltado de `ruta: '/'` documentado en CLAUDE.md §14, Fase 0). Se commitea y se
-verifica sola — con esta fase se cierra el plan completo.
+Con la Fase 6 se completaron las 7 fases del plan. No queda ningún trabajo pendiente de
+este documento — cualquier trabajo nuevo sobre VetCare que surja de aquí en adelante
+(nuevos RF, otro rediseño, otra ampliación de alcance) debería documentarse en un plan
+aparte, siguiendo el mismo patrón: un archivo `.md` propio en la raíz del repo, referenciado
+desde `CLAUDE.md`, no reutilizando este archivo ya cerrado.

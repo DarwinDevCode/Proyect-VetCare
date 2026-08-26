@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
+  Badge,
   Box,
   Drawer,
   IconButton,
@@ -26,6 +27,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useAuth } from '../auth/AuthContext';
 import { modulosParaRol } from './modulos';
 import { ORGANIC } from '../theme';
+import { listarProductos } from '../modules/inventario/api';
 
 const ANCHO_DRAWER = 260;
 
@@ -42,6 +44,22 @@ export function AppLayout() {
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [alertaStockCount, setAlertaStockCount] = useState(0);
+
+  // Fase 6: la campana era solo visual desde la Fase 0, a proposito -- se
+  // pospuso conectarla hasta que existiera un consumidor real de la alerta de
+  // stock (el KPI del Dashboard). producto_select permite a los tres roles
+  // leer el catalogo (ver migracion de RLS), asi que la cuenta funciona igual
+  // para los tres; el click siempre lleva a "/inicio" y no a "/inventario"
+  // directamente porque esa ruta esta cerrada para Recepcionista (RutaProtegida).
+  useEffect(() => {
+    if (!sesion) return;
+    listarProductos()
+      .then((productos) => {
+        setAlertaStockCount(productos.filter((p) => p.activo && p.existencia_actual <= p.nivel_minimo).length);
+      })
+      .catch(() => setAlertaStockCount(0));
+  }, [sesion]);
 
   if (!sesion) return null;
 
@@ -134,8 +152,10 @@ export function AppLayout() {
             }}
           />
           <Box sx={{ flexGrow: 1 }} />
-          <IconButton>
-            <NotificationsIcon />
+          <IconButton onClick={() => navigate('/inicio')} aria-label="Alertas de stock">
+            <Badge badgeContent={alertaStockCount} color="warning">
+              <NotificationsIcon />
+            </Badge>
           </IconButton>
           <Chip label={ETIQUETA_ROL[sesion.rol.codigo] ?? sesion.rol.nombre} size="small" color="primary" variant="outlined" />
           <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>

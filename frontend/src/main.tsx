@@ -3,7 +3,15 @@ import { createRoot } from 'react-dom/client';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import 'dayjs/locale/es';
+// RNF-011 (interfaz en espanol): hasta la Fase 6 ningun componente formateaba
+// nombres de dia/mes (solo DD/MM/YYYY, HH:mm -- sin tokens que dependan de
+// locale), asi que alcanzaba con pasar el locale al LocalizationProvider de
+// abajo (solo afecta a los DatePicker). El Dashboard es el primero en usar
+// "dddd D de MMMM"; sin esto se veria en ingles pese a que el paquete de
+// locale ya estaba importado.
+dayjs.locale('es');
 import { BrowserRouter } from 'react-router-dom';
 import { theme } from './theme';
 import { AuthProvider } from './auth/AuthContext';

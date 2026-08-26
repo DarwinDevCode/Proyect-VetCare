@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import PetsIcon from '@mui/icons-material/Pets';
 import EventIcon from '@mui/icons-material/Event';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
@@ -20,6 +21,18 @@ export interface DefinicionModulo {
 }
 
 export const MODULOS: DefinicionModulo[] = [
+  {
+    // Fase 6: apunta a "/inicio", no a "/" -- "/" solo redirige aqui (InicioPorRol
+    // en App.tsx), nunca es la ruta activa de una pagina. Si "ruta" fuera "/",
+    // location.pathname.startsWith(modulo.ruta) coincidiria con *cualquier* ruta
+    // de la app y este item apareceria siempre seleccionado (ver CLAUDE.md
+    // seccion 14, Fase 0, donde por esto mismo se pospuso agregar esta entrada).
+    ruta: '/inicio',
+    etiqueta: 'Dashboard',
+    icono: DashboardIcon,
+    roles: ['recepcionista', 'veterinario', 'administrador'],
+    implementado: true,
+  },
   {
     ruta: '/pacientes',
     etiqueta: 'Pacientes y Propietarios',
