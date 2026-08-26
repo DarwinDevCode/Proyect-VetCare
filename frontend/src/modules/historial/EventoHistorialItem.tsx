@@ -79,7 +79,7 @@ export function EventoHistorialItem({
                 ))}
               </Box>
             )}
-            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', displayPrint: 'none' }}>
               <Button size="small" onClick={() => onAbrirVacunacion(evento.id_evento)}>
                 Aplicar vacuna a esta consulta
               </Button>
@@ -116,7 +116,11 @@ export function EventoHistorialItem({
                 <Typography variant="body2" color="text.secondary">
                   Sin resultado todavía.
                 </Typography>
-                <Button size="small" onClick={() => onAbrirCompletarExamen(evento.id_evento, soloFecha(evento.fecha))}>
+                <Button
+                  size="small"
+                  sx={{ displayPrint: 'none' }}
+                  onClick={() => onAbrirCompletarExamen(evento.id_evento, soloFecha(evento.fecha))}
+                >
                   Completar resultado
                 </Button>
               </Stack>

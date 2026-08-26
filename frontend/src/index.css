@@ -29,12 +29,15 @@ body,
   #comprobante-factura,
   #comprobante-factura *,
   #reporte-ingresos,
-  #reporte-ingresos * {
+  #reporte-ingresos *,
+  #historial-imprimible,
+  #historial-imprimible * {
     visibility: visible;
   }
 
   #comprobante-factura,
-  #reporte-ingresos {
+  #reporte-ingresos,
+  #historial-imprimible {
     position: absolute;
     top: 0;
     left: 0;
