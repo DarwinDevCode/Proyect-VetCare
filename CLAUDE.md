@@ -461,10 +461,10 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 a 5
-  completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); queda
-  la Fase 6 (Dashboard). No commitear ni desplegar ninguna fase sin haberla verificado por
-  separado — es la condición bajo la que el usuario aprobó el plan.
+- **Rediseño visual "Organic" + ampliaciones de alcance — completo.** Las 7 fases del plan
+  (0, 1a-1e, 2, 3, 4, 5, 6) están terminadas y verificadas por separado (ver sección 14 y
+  [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)). No queda ninguna fase pendiente del
+  plan original.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -709,7 +709,7 @@ registrando cada uno de esos cambios con el identificador correcto según la tab
 navegador con la cuenta `administrador`: las cinco pestañas cargan datos reales sin errores de
 consola.
 
-## 14. Rediseño visual «Organic» y ampliaciones de alcance (en curso, por fases)
+## 14. Rediseño visual «Organic» y ampliaciones de alcance (completo, ejecutado por fases)
 
 Plan de implementación completo (migraciones exactas, extensión de `theme.ts`, archivos por
 fase, verificación, estado de cada fase) en
@@ -1280,3 +1280,90 @@ la marca ocupada (misma garantía confirmada a nivel de base por `curl`).
 (`propietario@vetcare.local`) en `supabase/seed.sql`, vinculada a María Fernanda
 Chávez Rodríguez, para poder probar el portal en local sin pasar por la Edge
 Function cada vez.
+
+### Fase 6 — completada: Dashboard (1a) — cierra el plan del rediseño Organic
+
+Última fase del plan. Sin migración nueva: KPIs y agenda del día son agregaciones
+cliente-side sobre tablas/vistas que cada rol ya puede leer por RLS (`cita`,
+`pago`, `producto`, `v_lotes_por_vencer`, `lista_espera`, `orden_compra`,
+`v_estado_factura`) — mismo criterio que `ReporteIngresos.tsx` (la consolidación
+es una suma sobre filas que el rol ya puede leer, no una regla de negocio que
+deba vivir en la base).
+
+- **`modules/dashboard/api.ts`**: tres funciones (`obtenerResumenRecepcionista`,
+  `obtenerResumenVeterinario`, `obtenerResumenAdministrador`), una por rol, cada
+  una componiendo funciones ya existentes de `agenda/api.ts`, `inventario/api.ts`,
+  `facturacion/api.ts` y `compras/api.ts` — no se duplicó ninguna consulta.
+  **Deliberado, mismo criterio que el resto del proyecto**: cada resumen solo
+  pide lo que su rol puede leer (Recepcionista no consulta `producto`, aunque
+  `producto_select` en RLS de hecho se lo permitiría — ver más abajo; Veterinario
+  no consulta `pago`/`factura`, a los que RLS sí le niega el acceso). El resumen
+  del Veterinario filtra `citasHoy` por `id_veterinario === sesion.usuario.id_usuario`
+  **client-side**, a diferencia de `AgendaPage` (que a propósito muestra la
+  agenda completa, RLS lo permite): aquí el criterio es distinto porque es un
+  resumen personal ("tu día"), no una vista de agenda compartida.
+- **`modules/dashboard/DashboardPage.tsx`**: un panel por rol
+  (`PanelRecepcionista`/`PanelVeterinario`/`PanelAdministrador`), tarjetas de KPI
+  + "Agenda de hoy" (Recepcionista/Veterinario) + "Accesos rápidos" (los tres).
+  Ningún KPI de una tabla a la que la RLS de todas formas respondería vacío o
+  403 — mismo antipatrón ya evitado en Módulos 1 y 4 (ficha con pestañas,
+  formulario de consumo).
+- **`App.tsx` — `InicioPorRol` deja de redirigir por rol**: antes enviaba a
+  Recepcionista/Veterinario a `/pacientes` y a Administrador a `/inventario`;
+  ahora los tres comparten un mismo destino, `/inicio`. **Implementación
+  concreta, una precisión sobre el plan**: `InicioPorRol` en `"/"` sigue siendo
+  un `<Navigate to="/inicio" replace />` (no renderiza `DashboardPage`
+  directamente en `"/"`) para que `location.pathname` sea siempre `/inicio` al
+  ver el dashboard — si `"/"` renderizara la página directamente, el item de
+  nav (que apunta a `/inicio`, nunca a `/`, ver más abajo) no se resaltaría al
+  entrar recién logueado.
+- **`layout/modulos.ts` — entrada "Dashboard" activada**, primera del array,
+  con `ruta: '/inicio'` y los tres roles. **No es `ruta: '/'`**: tal como ya
+  advertía la Fase 0, `location.pathname.startsWith(modulo.ruta)` con
+  `ruta: '/'` coincidiría con *cualquier* ruta de la app y el item aparecería
+  siempre seleccionado. Verificado en el DOM que solo `/inicio` lleva
+  `Mui-selected` estando en el dashboard, y que al navegar a `/inventario` el
+  resaltado se mueve correctamente sin que "Dashboard" quede pegado.
+- **Campana de notificaciones conectada**: era solo visual desde la Fase 0 a
+  propósito ("se pospuso conectarla hasta que existiera un consumidor real").
+  Ahora `AppLayout.tsx` consulta `producto` al montar y muestra un `Badge` con
+  la cuenta de productos bajo mínimo; el click siempre navega a `/inicio` (no a
+  `/inventario` directamente) porque esa ruta está cerrada para Recepcionista
+  por `RutaProtegida`, aunque la política `producto_select` sí le permite leer
+  el catálogo — mismo criterio que en `dashboard/api.ts`, la campana no asume
+  que todo lo que la RLS permite leer tiene además una pantalla a la que
+  llevar a ese rol.
+- **`dayjs.locale('es')` activado globalmente en `main.tsx`**: el paquete de
+  locale ya estaba importado desde la Fase 0 (RNF-021), pero nunca se activaba
+  porque ningún componente hasta ahora formateaba nombres de día/mes (solo
+  `DD/MM/YYYY`/`HH:mm`, sin tokens que dependan de locale) — alcanzaba con
+  pasárselo al `LocalizationProvider` de MUI, que solo afecta a los
+  `DatePicker`. El saludo del Dashboard ("miércoles 26 de agosto") es el primer
+  uso de `dddd`/`MMMM`; sin activar el locale se habría visto en inglés.
+  Verificado que no cambia ningún formato ya existente en el resto de la app
+  (ninguno usa tokens de nombre de día/mes).
+
+**Bug de entorno encontrado durante la verificación, no del código de esta
+fase**: `lista_espera` y las demás tablas de las Fases 2-5 devolvían
+`PGRST205` ("Could not find the table... in the schema cache") pese a que las
+migraciones existían en `supabase/migrations/`. La causa real, confirmada con
+`to_regclass('public.lista_espera')` devolviendo `null`, era que ese contenedor
+local nunca había aplicado esas migraciones (se habían escrito en otra sesión/
+entorno) — no un problema de caché de PostgREST. Se resolvió con
+`npx supabase db reset` (recrea la base local desde cero + reaplica todas las
+migraciones + `seed.sql`); un simple `NOTIFY pgrst, 'reload schema'` no alcanzó
+porque el problema no era de caché. Patrón a tener presente: un `404 PGRST205`
+no siempre es un problema de caché de esquema — verificar primero si la tabla
+realmente existe (`to_regclass`) antes de asumir que un `reload schema` alcanza.
+
+**Verificado** en navegador con las tres cuentas (tras el `db reset`): `admin@vetcare.local`
+ve Cobrado hoy/Facturas pendientes/Bajo mínimo/Lotes por vencer/Órdenes de
+compra con los valores esperados contra los datos sembrados; `veterinario@vetcare.local`
+ve "Tus citas de hoy: 0", "Productos bajo mínimo: 1" (coincide con el badge de
+la campana, confirmado inspeccionando el DOM); `recepcion@vetcare.local` ve
+Agenda de hoy vacía y los tres accesos rápidos funcionando. Resaltado del nav
+confirmado por DOM (`Mui-selected` solo en el item activo, nunca en
+"Dashboard" fuera de `/inicio`). `npm run build` limpio.
+
+Con esto se cierra el plan completo del rediseño Organic (7 fases). No queda
+ninguna fase pendiente en [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md).

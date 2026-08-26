@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { RutaProtegida } from './auth/RutaProtegida';
 import { AppLayout } from './layout/AppLayout';
+import { DashboardPage } from './modules/dashboard/DashboardPage';
 import { PacientesPage } from './modules/pacientes/PacientesPage';
 import { AgendaPage } from './modules/agenda/AgendaPage';
 import { InventarioPage } from './modules/inventario/InventarioPage';
@@ -23,19 +24,14 @@ function PantallaCargando() {
   );
 }
 
+// Fase 6: antes redirigia por rol a la pantalla de escritura principal de cada
+// uno (Pacientes / Inventario); ahora todos los roles comparten un mismo
+// destino, el Dashboard -- "/" sigue siendo solo el punto de entrada tras el
+// login, nunca la ruta real de la pagina (ver modulos.ts: el item de nav
+// "Dashboard" apunta a "/inicio", no a "/", por el problema de resaltado ya
+// documentado en CLAUDE.md seccion 14, Fase 0).
 function InicioPorRol() {
-  const { sesion } = useAuth();
-  if (!sesion) return null;
-
-  switch (sesion.rol.codigo) {
-    case 'recepcionista':
-    case 'veterinario':
-      return <Navigate to="/pacientes" replace />;
-    case 'administrador':
-      return <Navigate to="/inventario" replace />;
-    default:
-      return null;
-  }
+  return <Navigate to="/inicio" replace />;
 }
 
 export default function App() {
@@ -68,6 +64,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<InicioPorRol />} />
+        <Route path="/inicio" element={<DashboardPage />} />
         <Route
           path="/pacientes"
           element={
