@@ -32,6 +32,13 @@ const ETIQUETA_TIPO: Record<Producto['tipo'], string> = {
   vacuna: 'Vacuna',
 };
 
+type FiltroTipo = 'todos' | Producto['tipo'];
+const OPCIONES_FILTRO_TIPO: FiltroTipo[] = ['todos', 'medicamento', 'vacuna', 'insumo'];
+const ETIQUETA_FILTRO_TIPO: Record<FiltroTipo, string> = {
+  todos: 'Todos',
+  ...ETIQUETA_TIPO,
+};
+
 export function InventarioPage() {
   const { sesion } = useAuth();
   const puedeGestionar = sesion?.rol.codigo === 'administrador';
@@ -43,6 +50,8 @@ export function InventarioPage() {
 
   const [dialogoNuevoAbierto, setDialogoNuevoAbierto] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('todos');
+  const [soloAlertas, setSoloAlertas] = useState(false);
 
   const recargar = useCallback(async () => {
     setCargando(true);
@@ -67,13 +76,17 @@ export function InventarioPage() {
   }, [recargar]);
 
   // RF-025: catalogo acotado, sin ilike contra el servidor -- se filtra en memoria.
+  // El filtro por tipo y "bajo minimo" (1n) son la misma idea: acotar en memoria lo
+  // que ya esta cargado, no una consulta nueva.
   const productosFiltrados = useMemo(() => {
     const t = texto.trim().toLowerCase();
-    if (!t) return productos;
-    return productos.filter(
-      (p) => p.nombre.toLowerCase().includes(t) || p.codigo.toLowerCase().includes(t),
-    );
-  }, [productos, texto]);
+    return productos.filter((p) => {
+      if (t && !p.nombre.toLowerCase().includes(t) && !p.codigo.toLowerCase().includes(t)) return false;
+      if (filtroTipo !== 'todos' && p.tipo !== filtroTipo) return false;
+      if (soloAlertas && !(p.activo && p.existencia_actual <= p.nivel_minimo)) return false;
+      return true;
+    });
+  }, [productos, texto, filtroTipo, soloAlertas]);
 
   // RF-026: se deriva del mismo array ya cargado, no de una consulta aparte a
   // v_alerta_stock (evita una segunda fuente de datos que podria desincronizarse).
@@ -125,6 +138,26 @@ export function InventarioPage() {
         }}
       />
 
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        {OPCIONES_FILTRO_TIPO.map((opcion) => (
+          <Chip
+            key={opcion}
+            label={ETIQUETA_FILTRO_TIPO[opcion]}
+            size="small"
+            color={filtroTipo === opcion ? 'primary' : 'default'}
+            variant={filtroTipo === opcion ? 'filled' : 'outlined'}
+            onClick={() => setFiltroTipo(opcion)}
+          />
+        ))}
+        <Chip
+          label="Bajo mínimo"
+          size="small"
+          color={soloAlertas ? 'warning' : 'default'}
+          variant={soloAlertas ? 'filled' : 'outlined'}
+          onClick={() => setSoloAlertas((a) => !a)}
+        />
+      </Stack>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -158,7 +191,9 @@ export function InventarioPage() {
                   <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
                     <Inventory2Icon fontSize="large" />
                     <Typography variant="body2">
-                      {texto ? 'Sin resultados para esa búsqueda.' : 'Todavía no hay productos registrados.'}
+                      {texto || filtroTipo !== 'todos' || soloAlertas
+                        ? 'Sin resultados para esa búsqueda.'
+                        : 'Todavía no hay productos registrados.'}
                     </Typography>
                   </Stack>
                 </TableCell>
