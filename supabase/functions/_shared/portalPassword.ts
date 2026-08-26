@@ -57,11 +57,14 @@ interface CredencialesPortal {
   urlPortal: string | null;
 }
 
-function escaparHtml(texto: string): string {
+// Exportadas (dejan de ser privadas) para poder probarlas directo desde
+// portalPassword.test.ts -- en particular, que un nombre de propietario con
+// HTML/script no quede sin escapar en el correo (ver ese archivo).
+export function escaparHtml(texto: string): string {
   return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function plantillaHtml(opciones: {
+export function plantillaHtml(opciones: {
   titulo: string;
   introduccion: string;
   correo: string;
