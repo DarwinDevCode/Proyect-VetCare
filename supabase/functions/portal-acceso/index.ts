@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
           esNuevaCuenta: true,
           urlPortal,
         });
-      } catch {
+      } catch (errorCorreo) {
+        console.error('portal-acceso (automatico): fallo el envio de correo', errorCorreo);
         // La cuenta NO se revierte por esto: revertir dejaria al propietario sin
         // acceso pese a que la cuenta es perfectamente recuperable con 'restablecer'.
         envioCorreoFallido = true;
@@ -178,7 +179,8 @@ Deno.serve(async (req) => {
           esNuevaCuenta: false,
           urlPortal,
         });
-      } catch {
+      } catch (errorCorreo) {
+        console.error('portal-acceso (restablecer): fallo el envio de correo', errorCorreo);
         envioCorreoFallido = true;
       }
 

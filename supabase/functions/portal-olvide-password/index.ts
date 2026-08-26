@@ -96,7 +96,8 @@ Deno.serve(async (req) => {
         esNuevaCuenta: false,
         urlPortal,
       });
-    } catch {
+    } catch (errorCorreo) {
+      console.error('portal-olvide-password: fallo el envio de correo', errorCorreo);
       // La contraseña ya se cambió aunque el correo falle -- no hay forma de
       // que el usuario la sepa hasta reintentar. Mismo criterio best-effort que
       // 'automatico'/'restablecer' en portal-acceso: no revertir, y no exponer
