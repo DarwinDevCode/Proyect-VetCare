@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
   Box,
   Drawer,
   IconButton,
+  InputAdornment,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
+  TextField,
   Toolbar,
   Typography,
   Chip,
@@ -19,8 +21,11 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import PetsIcon from '@mui/icons-material/Pets';
 import LogoutIcon from '@mui/icons-material/Logout';
+import SearchIcon from '@mui/icons-material/Search';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useAuth } from '../auth/AuthContext';
 import { modulosParaRol } from './modulos';
+import { ORGANIC } from '../theme';
 
 const ANCHO_DRAWER = 260;
 
@@ -33,23 +38,33 @@ const ETIQUETA_ROL: Record<string, string> = {
 export function AppLayout() {
   const { sesion, cerrarSesion } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [busqueda, setBusqueda] = useState('');
 
   if (!sesion) return null;
 
   const modulos = modulosParaRol(sesion.rol.codigo);
   const nombreCompleto = `${sesion.usuario.nombres} ${sesion.usuario.apellidos}`;
 
+  // Atajo de navegacion, no un buscador propio: reutiliza el buscador que ya
+  // existe en Pacientes (RF-007) en vez de duplicar logica de busqueda aqui.
+  function buscarDesdeTopbar() {
+    const texto = busqueda.trim();
+    if (!texto) return;
+    navigate(`/pacientes?q=${encodeURIComponent(texto)}`);
+  }
+
   const contenidoDrawer = (
-    <Box role="presentation">
+    <Box role="presentation" sx={{ height: '100%', bgcolor: ORGANIC.surface }}>
       <Toolbar sx={{ gap: 1 }}>
         <PetsIcon color="primary" />
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <Typography variant="h6" sx={{ fontSize: 20 }}>
           VetCare
         </Typography>
       </Toolbar>
-      <List>
+      <List sx={{ px: 1.5 }}>
         {modulos.map((modulo) => {
           const Icono = modulo.icono;
           const activo = location.pathname.startsWith(modulo.ruta);
@@ -60,6 +75,16 @@ export function AppLayout() {
               to={modulo.ruta}
               selected={activo}
               onClick={() => setDrawerAbierto(false)}
+              sx={{
+                borderRadius: 999,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  bgcolor: ORGANIC.accent[100],
+                  color: ORGANIC.accent[800],
+                  '& .MuiListItemIcon-root': { color: ORGANIC.accent[700] },
+                  '&:hover': { bgcolor: ORGANIC.accent[200] },
+                },
+              }}
             >
               <ListItemIcon>
                 <Icono />
@@ -81,7 +106,7 @@ export function AppLayout() {
         elevation={0}
         sx={{ borderBottom: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.drawer + 1 }}
       >
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar sx={{ gap: 1.5 }}>
           <IconButton
             edge="start"
             sx={{ display: { sm: 'none' } }}
@@ -89,7 +114,29 @@ export function AppLayout() {
           >
             <MenuIcon />
           </IconButton>
+          <TextField
+            placeholder="Buscar mascota, dueño…"
+            size="small"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') buscarDesdeTopbar();
+            }}
+            sx={{ display: { xs: 'none', sm: 'block' }, width: 260 }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
           <Box sx={{ flexGrow: 1 }} />
+          <IconButton>
+            <NotificationsIcon />
+          </IconButton>
           <Chip label={ETIQUETA_ROL[sesion.rol.codigo] ?? sesion.rol.nombre} size="small" color="primary" variant="outlined" />
           <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
@@ -122,7 +169,7 @@ export function AppLayout() {
         sx={{
           display: { xs: 'none', sm: 'block' },
           width: ANCHO_DRAWER,
-          '& .MuiDrawer-paper': { width: ANCHO_DRAWER, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': { width: ANCHO_DRAWER, boxSizing: 'border-box', borderRight: 'none' },
         }}
         open
       >

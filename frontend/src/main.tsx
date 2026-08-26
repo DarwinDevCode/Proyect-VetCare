@@ -8,6 +8,15 @@ import { BrowserRouter } from 'react-router-dom';
 import { theme } from './theme';
 import { AuthProvider } from './auth/AuthContext';
 import App from './App.tsx';
+// Tipografia del sistema visual "Organic": Figtree para cuerpo, Caprasimo para
+// encabezados (ver theme.ts). Paquetes npm en vez de un <link> a Google Fonts:
+// no depende de una CDN externa en tiempo de ejecucion (RNF-021: sin instalar
+// software adicional, pero tampoco sin depender de que fonts.googleapis.com
+// este disponible en la red de la clinica).
+import '@fontsource/figtree/400.css';
+import '@fontsource/figtree/600.css';
+import '@fontsource/figtree/700.css';
+import '@fontsource/caprasimo/400.css';
 // index.css no estaba importado en ninguna parte: el archivo existia desde el andamiaje
 // de Vite pero nunca llegaba al navegador (CssBaseline de MUI ya cubria el reset, por
 // eso no se notaba). Se importa ahora porque contiene la hoja de impresion de RI-005.
