@@ -173,7 +173,7 @@ export async function enviarCredencialesPortal(datos: CredencialesPortal): Promi
     ? `Ingresa desde: ${datos.urlPortal}`
     : 'Pide la dirección del Portal del propietario en la clínica si no la tienes.';
 
-  await transporte.sendMail({
+  const info = await transporte.sendMail({
     from: remitente,
     to: datos.correo,
     subject: titulo,
@@ -199,4 +199,11 @@ Si no reconoces esta solicitud, contacta a la clínica.`,
       notaFinal: 'Si no reconoces esta solicitud, contacta a la clínica. Este correo se generó automáticamente.',
     }),
   });
+
+  console.log('enviarCredencialesPortal: respuesta SMTP', JSON.stringify({
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
+    response: info.response,
+  }));
 }

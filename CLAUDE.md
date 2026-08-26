@@ -1717,3 +1717,22 @@ mensaje genérico de éxito sin distinguir si el correo existía. La contraseña
 sembrada (`propietario@vetcare.local`) se restableció a `VetCare#2026` después de las pruebas,
 vía la API admin de GoTrue, para no dejar el seed local inconsistente con lo documentado en la
 sección 10.
+
+**Corrección posterior: los tres `catch` de envío de correo (`portal-acceso` y
+`portal-olvide-password`) tragaban el error sin registrarlo en ningún lado** — un fallo real de
+SMTP quedaba completamente invisible en los logs del edge runtime, imposible de diagnosticar
+sin instrumentar el código a mano. Se agregó `console.error(...)` en cada `catch`, y
+`enviarCredencialesPortal` ahora registra la respuesta completa del servidor SMTP
+(`messageId`/`accepted`/`rejected`/`response`) en cada envío exitoso, no solo en el fallido —
+sin este log no había forma de distinguir "el correo nunca se envió" de "Gmail lo aceptó pero no
+llegó" (dos causas raíz completamente distintas, con la misma UI de "no me llegó nada"). Con el
+log ya en su lugar, se reprodujo el caso reportado (`kacoronelg@gmail.com`) y la respuesta de
+Gmail fue `250 2.0.0 OK` con el correo en `accepted` y `rejected: []` — la transacción SMTP se
+completó correctamente; Gmail recibió y aceptó el mensaje. La causa más probable de "no llega"
+con esta configuración específica (remitente y destinatario son la misma cuenta de Gmail,
+`VETCARE_SMTP_REMITENTE = VETCARE_SMTP_USUARIO`) es que Gmail lo clasifique como
+Spam/Promociones — un correo que se envía *a través de* SMTP autenticado *hacia* la misma
+cuenta que lo autentica, con contenido de "aquí está tu contraseña", coincide con patrones que
+los filtros de Gmail marcan con más agresividad que un correo entre cuentas distintas. No es un
+bug de la aplicación; queda como nota operativa para cuando se pruebe con una cuenta de
+propietario real y distinta del remitente.
