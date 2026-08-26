@@ -23,17 +23,10 @@
 //     opera sobre public.usuario (personal), no sobre propietario/cuentas de portal.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { enviarCredencialesPortal } from './smtp.ts';
-
-// Alfabeto sin caracteres ambiguos (0/O, 1/l/I) para que una contraseña leida
-// desde el correo por el propietario no genere errores de trascripcion.
-const ALFABETO_PASSWORD = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-
-function generarPasswordTemporal(longitud = 12): string {
-  const bytes = new Uint8Array(longitud);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => ALFABETO_PASSWORD[b % ALFABETO_PASSWORD.length]).join('');
-}
+// Compartido con portal-olvide-password (ver _shared/portalPassword.ts): la
+// generacion de contraseña temporal y el envio de correo son exactamente la
+// misma operacion en ambas funciones, solo cambia quien la dispara.
+import { enviarCredencialesPortal, generarPasswordTemporal } from '../_shared/portalPassword.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

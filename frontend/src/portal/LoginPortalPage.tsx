@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Paper, Stack, TextField, Typography } from '@mui/material';
 import PetsIcon from '@mui/icons-material/Pets';
 import { usePortalAuth } from './PortalAuthContext';
+import { OlvidePasswordDialog } from './OlvidePasswordDialog';
 
 // Analoga a auth/LoginPage.tsx, pero contra el portal -- sin autoregistro: el
 // acceso lo emite Recepcion desde la ficha del propietario (RF-042).
@@ -11,6 +12,7 @@ export function LoginPortalPage() {
   const [password, setPassword] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogoOlvideAbierto, setDialogoOlvideAbierto] = useState(false);
 
   async function manejarEnvio(evento: FormEvent) {
     evento.preventDefault();
@@ -71,12 +73,24 @@ export function LoginPortalPage() {
             <Button type="submit" variant="contained" size="large" loading={enviando}>
               Ingresar
             </Button>
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              underline="hover"
+              sx={{ textAlign: 'center' }}
+              onClick={() => setDialogoOlvideAbierto(true)}
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
               ¿Todavía no tienes acceso? Pídelo en tu próxima visita a la clínica.
             </Typography>
           </Stack>
         </form>
       </Paper>
+
+      <OlvidePasswordDialog abierto={dialogoOlvideAbierto} onCerrar={() => setDialogoOlvideAbierto(false)} />
     </Box>
   );
 }

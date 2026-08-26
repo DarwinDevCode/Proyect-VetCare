@@ -15,6 +15,15 @@ import type {
 // suya, la base ya no se la devuelve. Mismo criterio que el resto del proyecto
 // ("la logica critica vive en la base, no en el cliente").
 
+// "Olvidé mi contraseña" desde /portal/ingresar: la Edge Function nunca revela
+// si el correo existe en el sistema (evita enumeracion de cuentas), asi que la
+// respuesta siempre es la misma "ok" -- este cliente no necesita distinguir
+// nada, solo reportar si la llamada en si fallo (red, servidor caido).
+export async function solicitarRestablecerPassword(correo: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('portal-olvide-password', { body: { correo } });
+  if (error) throw error;
+}
+
 // RF-044: mis mascotas. Mismo embed que buscarFichas (modules/pacientes/api.ts) --
 // paciente.id_raza es una FK compuesta, necesita el nombre de la restriccion
 // explicito (CLAUDE.md seccion 6).

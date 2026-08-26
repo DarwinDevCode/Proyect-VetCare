@@ -1645,3 +1645,75 @@ sin diagnóstico/hallazgos en ningún lado; cancelar una cita `'programada'` la 
 viendo su dashboard normalmente (el fix de `App.tsx` no afecta rutas de personal). `npm run
 build` limpio. Datos de prueba (citas insertadas a mano para probar cancelación) se
 revirtieron después.
+
+### "Olvidé mi contraseña" desde el login + rediseño de los correos (2026-08-26)
+
+Pedido explícito del cliente: hasta aquí "Cambiar contraseña" solo existía **dentro** de una
+sesión ya iniciada (menú del avatar, sección anterior) — un propietario que no recordaba su
+contraseña no tenía ninguna salida. Se agrega autoservicio por correo desde
+`/portal/ingresar`, y de paso se rediseñan los tres correos que ya envía el sistema (alta
+automática, reenvío manual, y este nuevo) para que se vean como VetCare, no HTML genérico.
+
+**Edge Function nueva `portal-olvide-password`, no una acción más de `portal-acceso` —
+decisión deliberada de aislamiento.** `portal-acceso/index.ts` asume en su primera línea de
+lógica que quien llama ya es un Recepcionista autenticado; esa comprobación protege también
+`'restablecer'`, que resetea la contraseña de *cualquier* propietario dado su `idPropietario`.
+Meter una rama sin autenticación en ese mismo archivo —por cuidadosa que quede hoy— deja abierta
+la posibilidad de que un cambio futuro la debilite por descuido. Una función nueva, sin ninguna
+otra capacidad, es trivial de auditar de una sola mirada. La "autenticación" de este flujo es la
+misma que cualquier "olvidé mi contraseña" estándar: tener acceso al correo registrado, no un
+JWT — por eso usa `service_role` directo, sin cliente-con-JWT-del-invocador (no hay JWT, es un
+visitante anónimo).
+
+- **Nunca revela si un correo existe en el sistema** (evita enumeración de cuentas): con
+  correo encontrado, sin acceso de portal, o inexistente, la respuesta es idéntica,
+  `{ ok: true }`. Solo un body mal formado (sin `correo`) es un error real (400). Verificado
+  por `curl` sin `Authorization`: mismo `{"ok":true}` para un correo real y uno inventado.
+- **Sin límite de tasa propio** — fuera de alcance a propósito (RES-06, equipo reducido). El
+  peor escenario de abuso es spam de correos al propio dueño de la cuenta, no robo de
+  credenciales: la contraseña nueva solo llega a su bandeja, nunca a quien hizo la solicitud.
+- `OlvidePasswordDialog.tsx` (nuevo, enlazado desde `LoginPortalPage.tsx`) muestra el mismo
+  mensaje genérico de éxito sin importar el resultado real — coherente con que el backend
+  tampoco lo distingue.
+
+**`supabase/functions/_shared/portalPassword.ts` (nuevo)** — `generarPasswordTemporal()` y
+`enviarCredencialesPortal()` se movieron aquí desde `portal-acceso/smtp.ts` (eliminado), porque
+ahora las usan **dos** Edge Functions (`portal-acceso` y `portal-olvide-password`): carpetas
+con `_` no se despliegan como función propia, es el lugar que reserva Supabase para código
+compartido entre funciones. `portal-acceso/index.ts` solo cambió sus imports; su lógica de
+`'manual'/'automatico'/'restablecer'` no se tocó — verificado por `curl` que las tres siguen
+funcionando igual tras el refactor.
+
+**Rediseño de los correos**, todo en el mismo `_shared/portalPassword.ts` (beneficia a las tres
+vías de una sola vez): tokens copiados **literalmente** de `ORGANIC` en `frontend/src/theme.ts`
+como constantes en el archivo de la Edge Function — una Edge Function (Deno) no puede importar
+`theme.ts` del frontend, son proyectos/runtimes distintos, así que si la paleta "Organic" cambia
+algún día hay que actualizar ambos lugares a mano. Contenedor centrado (480px), banda de
+encabezado en `accent[600]` con "🐾 VetCare" en blanco (sin imagen de logo real — exigiría
+hosting de imágenes que ninguna Edge Function tiene, fuera de alcance), tarjeta de contenido
+blanca con esquinas grandes, caja de credenciales sobre `neutral[100]` con la contraseña en
+monoespaciada, botón "Ingresar al portal" con la forma píldora del resto de la app
+(`border-radius:999px`) además del enlace en texto plano ya existente (algunos clientes de
+correo no renderizan bien botones estilizados; el texto es el respaldo). Tipografía: la propia
+pila de *fallback* que ya declara `theme.ts` (`"Segoe UI", system-ui, sans-serif` /
+`Segoe UI, Roboto, Arial, sans-serif`) — Caprasimo/Figtree no cargan de forma confiable en
+clientes de correo sin *web fonts* embebidas, que Outlook de escritorio y Gmail bloquean o
+ignoran; usar ya el *fallback* real del sistema visual mantiene consistencia sin depender de que
+cargue una fuente que probablemente no cargará. La versión de texto plano se mantiene igual de
+completa que antes, como respaldo para clientes sin HTML.
+
+**Verificado**: por `curl` sin `Authorization`, correo real (`kacoronelg@gmail.com`, apuntado
+temporalmente desde el propietario sembrado para poder confirmar un envío real) → `{"ok":true}`,
+sin errores en los logs del edge runtime, login con la contraseña anterior rechazado (confirma
+que el cambio se aplicó de verdad); correo inexistente → misma respuesta; body vacío → error
+real. Regresión de `portal-acceso` tras mover `smtp.ts` a `_shared/`: `'automatico'` sobre un
+propietario sin correo → `omitido:'sin_correo'`; `'restablecer'` sobre uno con portal → `ok`. La
+plantilla HTML se verificó visualmente sirviéndola como archivo estático desde el dev server
+(no se pudo inspeccionar una bandeja de correo real desde este entorno): banda de encabezado en
+`rgb(178, 98, 45)` (= `accent[600]`), botón con `border-radius: 999px`, contenido completo en el
+orden esperado. En navegador, con `propietario@vetcare.local`: el enlace "¿Olvidaste tu
+contraseña?" aparece bajo "Ingresar" en `/portal/ingresar`, abre el diálogo, y muestra el
+mensaje genérico de éxito sin distinguir si el correo existía. La contraseña de la cuenta
+sembrada (`propietario@vetcare.local`) se restableció a `VetCare#2026` después de las pruebas,
+vía la API admin de GoTrue, para no dejar el seed local inconsistente con lo documentado en la
+sección 10.
