@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import type { Rol, Usuario } from '../types/dominio';
@@ -36,12 +36,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
   const [sesion, setSesion] = useState<SesionVetCare | null>(null);
   const [errorPerfil, setErrorPerfil] = useState<string | null>(null);
+  // Ref, no estado: onAuthStateChange se suscribe una sola vez (deps []) y
+  // necesita comparar contra el usuario YA cargado en cada evento, sin quedar
+  // atado al closure de la primera ejecucion del efecto (mismo patron que
+  // PortalAuthContext.tsx -- ver el porque abajo).
+  const usuarioActualId = useRef<string | null>(null);
 
   useEffect(() => {
     let activo = true;
 
     async function inicializar(session: Session | null) {
       if (!session) {
+        usuarioActualId.current = null;
         if (activo) {
           setSesion(null);
           setCargando(false);
@@ -53,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!activo) return;
 
       if (!perfil) {
+        usuarioActualId.current = null;
         setErrorPerfil(
           'Tu cuenta no tiene un perfil configurado en VetCare. Contacta al Administrador del sistema.',
         );
@@ -61,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      usuarioActualId.current = session.user.id;
       setErrorPerfil(null);
       setSesion({ session, usuario: perfil.usuario, rol: perfil.rol });
       setCargando(false);
@@ -69,6 +77,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => inicializar(data.session));
 
     const { data: subscripcion } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Se compara el user.id, no el nombre del evento -- GoTrue reemite
+      // TOKEN_REFRESHED (y a veces un INITIAL_SESSION redundante) cada vez
+      // que la pestaña recupera el foco/visibilidad, no solo en un cambio
+      // real de sesion. Con el patron anterior (cargando=true + recargar el
+      // perfil en CUALQUIER evento), eso bastaba para expulsar al usuario al
+      // login: un vistazo momentaneo a un "sesion=null" mientras se
+      // revalidaba (o un fallo transitorio de red justo al recuperar el
+      // foco) hacia que RutaProtegida redirigiera a /ingresar. Bug real
+      // reportado por el usuario ("al cambiar de pestaña, me devuelve al
+      // login") -- mismo patron ya corregido antes en PortalAuthContext.tsx
+      // (CLAUDE.md seccion 14) pero nunca aplicado aqui, en el contexto de
+      // personal. Si sigue siendo el mismo usuario, solo se refresca el
+      // objeto session (token nuevo); no hace falta re-pedir el perfil ni
+      // mostrar el loader de pantalla completa.
+      if (session && session.user.id === usuarioActualId.current) {
+        setSesion((actual) => (actual ? { ...actual, session } : actual));
+        return;
+      }
       setCargando(true);
       inicializar(session);
     });
