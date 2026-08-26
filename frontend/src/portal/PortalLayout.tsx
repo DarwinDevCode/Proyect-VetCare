@@ -1,17 +1,23 @@
-import { useState } from 'react';
-import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
+  Badge,
   BottomNavigation,
   BottomNavigationAction,
   Box,
   Button,
   Container,
+  Divider,
   IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
   Menu,
   MenuItem,
   Paper,
+  Popover,
   Toolbar,
   Typography,
 } from '@mui/material';
@@ -20,8 +26,11 @@ import EventIcon from '@mui/icons-material/Event';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { usePortalAuth } from './PortalAuthContext';
 import { CambiarPasswordDialog } from './CambiarPasswordDialog';
+import { listarNotificacionesPortal, type NotificacionPortal } from './notificaciones';
 
 const NAV = [
   { ruta: '/portal/mascotas', etiqueta: 'Mis mascotas', Icono: PetsIcon },
@@ -38,8 +47,25 @@ const NAV = [
 export function PortalLayout() {
   const { sesion, cerrarSesion } = usePortalAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false);
+  const [notificaciones, setNotificaciones] = useState<NotificacionPortal[]>([]);
+  const [panelNotificaciones, setPanelNotificaciones] = useState<HTMLElement | null>(null);
+
+  // Mismo criterio que la campana de personal (AppLayout.tsx): sin estado de
+  // "leida" propio, se recalcula cada vez que se abre.
+  useEffect(() => {
+    if (!sesion) return;
+    listarNotificacionesPortal()
+      .then(setNotificaciones)
+      .catch(() => setNotificaciones([]));
+  }, [sesion]);
+
+  function irANotificacion(n: NotificacionPortal) {
+    setPanelNotificaciones(null);
+    navigate(n.ruta);
+  }
 
   if (!sesion) return null;
 
@@ -72,6 +98,42 @@ export function PortalLayout() {
           <Typography variant="body2" color="text.secondary" sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }}>
             {nombreCompleto}
           </Typography>
+          <IconButton onClick={(e) => setPanelNotificaciones(e.currentTarget)} aria-label="Notificaciones">
+            <Badge badgeContent={notificaciones.length} color="warning">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
+          <Popover
+            open={!!panelNotificaciones}
+            anchorEl={panelNotificaciones}
+            onClose={() => setPanelNotificaciones(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { width: 320, maxHeight: 420 } } }}
+          >
+            <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 1 }}>
+              Notificaciones
+            </Typography>
+            <Divider />
+            {notificaciones.length === 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, py: 4, color: 'text.secondary' }}>
+                <NotificationsNoneIcon fontSize="large" />
+                <Typography variant="body2">No hay notificaciones</Typography>
+              </Box>
+            ) : (
+              <List sx={{ py: 0 }}>
+                {notificaciones.map((n) => (
+                  <ListItemButton key={n.id} onClick={() => irANotificacion(n)} sx={{ alignItems: 'flex-start', py: 1 }}>
+                    <ListItemText
+                      primary={n.texto}
+                      secondary={n.detalle}
+                      slotProps={{ secondary: { sx: { color: 'text.secondary' } } }}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
+          </Popover>
           <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <Avatar sx={{ width: 32, height: 32 }}>{sesion.propietario.nombres[0]}</Avatar>
           </IconButton>
