@@ -1,6 +1,37 @@
 import { supabase } from '../../lib/supabaseClient';
 import type { Especie, Paciente, PacienteConFicha, Propietario, Raza } from '../../types/dominio';
 
+// RF-042 (Fase 5): emitir acceso al portal pasa por la Edge Function
+// portal-acceso -- toca auth.users (fuera del esquema que expone la API de datos,
+// RI-007) y requiere la service_role key, que nunca debe llegar al navegador.
+// Mismo patron que invocarAdminUsuarios (modules/administracion/api.ts): la
+// funcion redacta su propio mensaje en espanol, se intenta leer del cuerpo del
+// error antes de caer en el generico.
+export async function emitirAccesoPortal(
+  idPropietario: number,
+  correo: string,
+  password: string,
+): Promise<{ idUsuarioPortal: string }> {
+  const { data, error } = await supabase.functions.invoke('portal-acceso', {
+    body: { idPropietario, correo, password },
+  });
+  if (error) {
+    const contexto = (error as { context?: Response }).context;
+    if (contexto && typeof contexto.json === 'function') {
+      try {
+        const cuerpo = (await contexto.json()) as { error?: string };
+        if (cuerpo.error) throw new Error(cuerpo.error);
+      } catch {
+        // sigue al mensaje generico de abajo
+      }
+    }
+    throw new Error(error.message ?? 'No se pudo completar la operación.');
+  }
+  const respuesta = data as { idUsuarioPortal: string; error?: string };
+  if (respuesta?.error) throw new Error(respuesta.error);
+  return respuesta;
+}
+
 export async function listarEspecies(): Promise<Especie[]> {
   const { data, error } = await supabase.from('especie').select('*').order('nombre');
   if (error) throw error;
@@ -75,7 +106,7 @@ export async function buscarFichas(texto: string): Promise<PacienteConFicha[]> {
 }
 
 export async function crearPropietario(
-  datos: Omit<Propietario, 'id_propietario' | 'activo' | 'fecha_registro'>,
+  datos: Omit<Propietario, 'id_propietario' | 'activo' | 'fecha_registro' | 'id_usuario_portal'>,
 ): Promise<Propietario> {
   const { data, error } = await supabase.from('propietario').insert(datos).select().single();
   if (error) throw error;

@@ -10,6 +10,9 @@ interface Props {
 }
 
 const ESTILO_POR_ESTADO: Record<CitaConDetalle['estado'], object> = {
+  // Nunca se renderiza en el grid (AgendaGrid excluye las 'solicitada', que no
+  // tienen veterinario); el estilo existe solo para que el Record sea exhaustivo.
+  solicitada: { bgcolor: 'warning.main', color: 'warning.contrastText' },
   programada: { bgcolor: 'primary.main', color: 'primary.contrastText' },
   atendida: { bgcolor: 'secondary.main', color: 'secondary.contrastText' },
   // RN-005: una cita cancelada libera su horario -- se pinta como informativa/fantasma,

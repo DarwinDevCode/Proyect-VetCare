@@ -12,6 +12,8 @@ import { HistorialPage } from './modules/historial/HistorialPage';
 import { FacturacionPage } from './modules/facturacion/FacturacionPage';
 import { ReportesPage } from './modules/facturacion/ReportesPage';
 import { AdministracionPage } from './modules/administracion/AdministracionPage';
+import { PortalAuthProvider } from './portal/PortalAuthContext';
+import { PortalApp } from './portal/PortalApp';
 
 function PantallaCargando() {
   return (
@@ -43,6 +45,19 @@ export default function App() {
 
   return (
     <Routes>
+      {/* Rama paralela y hermana, no anidada en RutaProtegida/AppLayout de personal
+          (ver REDISENO-ORGANIC-PLAN.md, hallazgo de arquitectura #1): el
+          AuthProvider de personal sigue montado por fuera para cualquier sesion de
+          staff activa, pero /portal/* nunca lee su sesion/errorPerfil. */}
+      <Route
+        path="/portal/*"
+        element={
+          <PortalAuthProvider>
+            <PortalApp />
+          </PortalAuthProvider>
+        }
+      />
+
       <Route path="/ingresar" element={sesion ? <Navigate to="/" replace /> : <LoginPage />} />
 
       <Route

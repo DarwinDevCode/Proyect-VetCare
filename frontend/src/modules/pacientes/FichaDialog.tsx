@@ -23,6 +23,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import dayjs, { type Dayjs } from 'dayjs';
 import type { EventoHistorial, Especie, PacienteConFicha } from '../../types/dominio';
 import { EspecieRazaSelect } from './EspecieRazaSelect';
+import { AccesoPortalDialog } from './AccesoPortalDialog';
 import { actualizarPaciente, actualizarPropietario } from './api';
 import { listarCitasPorPaciente, type CitaResumen } from '../agenda/api';
 import { listarHistorial } from '../historial/api';
@@ -66,6 +67,7 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
   const [errorPestana, setErrorPestana] = useState<string | null>(null);
 
   const [editandoPropietario, setEditandoPropietario] = useState(false);
+  const [dialogoAccesoAbierto, setDialogoAccesoAbierto] = useState(false);
   const [editandoPaciente, setEditandoPaciente] = useState(false);
 
   const [formPropietario, setFormPropietario] = useState({
@@ -180,6 +182,7 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
   }
 
   return (
+    <>
     <Dialog open={!!ficha} onClose={onCerrar} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
         Ficha de {ficha.nombre}
@@ -289,6 +292,18 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
                       {ficha.propietario.direccion}
                     </Typography>
                   )}
+                  {puedeEditar &&
+                    (ficha.propietario.id_usuario_portal ? (
+                      <Chip label="Con acceso al portal" size="small" color="success" variant="outlined" sx={{ mt: 0.5, alignSelf: 'flex-start' }} />
+                    ) : (
+                      <Button
+                        size="small"
+                        sx={{ mt: 0.5, alignSelf: 'flex-start' }}
+                        onClick={() => setDialogoAccesoAbierto(true)}
+                      >
+                        Dar acceso al portal
+                      </Button>
+                    ))}
                 </Stack>
               )}
             </Box>
@@ -453,5 +468,12 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
         <Button onClick={onCerrar}>Cerrar</Button>
       </DialogActions>
     </Dialog>
+
+    <AccesoPortalDialog
+      propietario={dialogoAccesoAbierto ? ficha.propietario : null}
+      onCerrar={() => setDialogoAccesoAbierto(false)}
+      onEmitido={onActualizado}
+    />
+    </>
   );
 }

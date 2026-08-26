@@ -118,6 +118,39 @@ export async function reprogramarCita(
   return data;
 }
 
+// RF-043 (Fase 5): citas 'solicitada' desde el portal, pendientes de que Recepcion
+// les asigne veterinario/horario real. No aparecen en AgendaGrid (agrupa por
+// veterinario, y una solicitud todavia no tiene uno) -- se listan aparte.
+export async function listarSolicitudesPendientes(): Promise<CitaConDetalle[]> {
+  const { data, error } = await supabase
+    .from('cita')
+    .select(
+      `*, paciente:id_paciente(${SELECCION_PACIENTE_CITA}), veterinario:id_veterinario(id_usuario, nombres, apellidos)`,
+    )
+    .eq('estado', 'solicitada')
+    .order('fecha_registro');
+  if (error) throw error;
+  return data as unknown as CitaConDetalle[];
+}
+
+// RF-043: confirmar una solicitud -- asigna veterinario y horario real, pasando de
+// 'solicitada' a 'programada'. Este UPDATE es el que activa el EXCLUDE de
+// solapamiento (RN-004) para esta cita: si el horario ya esta ocupado, falla con
+// 23P01 igual que crearCita/reprogramarCita.
+export async function confirmarSolicitud(
+  id: number,
+  datos: Pick<Cita, 'fecha_hora_inicio' | 'duracion_minutos'> & { id_veterinario: string },
+): Promise<Cita> {
+  const { data, error } = await supabase
+    .from('cita')
+    .update({ ...datos, estado: 'programada' })
+    .eq('id_cita', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // Resumen de citas de un paciente, para la pestana "Citas" de la ficha
 // (Modulo 1). Mismo nivel de acceso que el resto de Agenda: cita_select ya
 // admite tanto a Recepcionista como a Veterinario, los dos roles que abren

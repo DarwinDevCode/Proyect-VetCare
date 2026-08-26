@@ -72,6 +72,10 @@ export interface Propietario {
   direccion: string | null;
   activo: boolean;
   fecha_registro: string;
+  // RF-042 (Fase 5): null hasta que Recepcion emite el acceso desde la ficha del
+  // propietario (FichaDialog.tsx). No es un campo de formulario -- lo escribe
+  // unicamente la Edge Function portal-acceso.
+  id_usuario_portal: string | null;
 }
 
 export type Sexo = 'M' | 'H';
@@ -95,12 +99,17 @@ export interface PacienteConFicha extends Paciente {
   raza: Raza | null;
 }
 
-export type EstadoCita = 'programada' | 'cancelada' | 'atendida';
+// RF-043 (Fase 5): 'solicitada' es una cita pedida desde el portal, sin cupo real
+// todavia (RN-021) -- siempre con id_veterinario null hasta que Recepcion la
+// confirma asignando veterinario/horario real (pasa a 'programada').
+export type EstadoCita = 'solicitada' | 'programada' | 'cancelada' | 'atendida';
 
 export interface Cita {
   id_cita: number;
   id_paciente: number;
-  id_veterinario: string;
+  // Nullable solo mientras estado='solicitada' (RN-021); RF-011 a RF-015 siguen
+  // asumiendo que una cita real ('programada'/'atendida') siempre tiene uno.
+  id_veterinario: string | null;
   fecha_hora_inicio: string;
   // Materializada por trigger (fn_calcular_fin_cita) al insertar/actualizar: nunca se
   // envia desde el cliente, siempre se lee tal cual la devuelve la base.
@@ -121,7 +130,8 @@ export interface PacienteParaCita {
 
 export interface CitaConDetalle extends Cita {
   paciente: PacienteParaCita;
-  veterinario: Pick<Usuario, 'id_usuario' | 'nombres' | 'apellidos'>;
+  // null solo para una 'solicitada' sin confirmar todavia (RF-043).
+  veterinario: Pick<Usuario, 'id_usuario' | 'nombres' | 'apellidos'> | null;
 }
 
 // RF-034/RF-035 (Fase 2): amplia RF-011 con una lista de espera real, sin
@@ -336,6 +346,17 @@ export interface EstadoFactura {
 
 export interface FacturaListada extends EstadoFactura {
   propietario: Pick<Propietario, 'identificacion' | 'nombres' | 'apellidos'>;
+}
+
+// Fila de v_carnet_portal (RF-044, Fase 5): carnet de vacunas del portal. RN-006
+// sigue intacto tambien aqui -- nunca expone consulta ni examen_laboratorio.
+export interface VacunaCarnetPortal {
+  id_paciente: number;
+  id_vacunacion: number;
+  producto: string;
+  fecha_aplicacion: string;
+  dosis: number;
+  proxima_fecha: string | null;
 }
 
 // Un concepto a facturar tal como lo devuelve fn_conceptos_facturables (RF-028) o
