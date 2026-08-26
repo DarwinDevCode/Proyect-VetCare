@@ -1,0 +1,183 @@
+<svg viewBox="0 0 1650 1150" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="dep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b45309"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1650" height="1150" fill="#ffffff"/>
+  <text x="825.0" y="42" text-anchor="middle" font-size="26" font-weight="700" fill="#0f172a" >VetCare — Diagrama de Paquetes</text>
+  <text x="825.0" y="66" text-anchor="middle" font-size="14" font-weight="400" fill="#475569" >Organización real del código: frontend/src/ (SPA) y supabase/ (backend versionado)</text>
+  <rect x="40" y="100" width="980" height="760" rx="12" fill="#fafaff" stroke="#4338ca" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="530.0" y="122" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3730a3" ></text>
+  <text x="530.0" y="128" text-anchor="middle" font-size="15.5" font-weight="700" fill="#3730a3" >Frontend — SPA (React + TypeScript + MUI)</text>
+  <text x="530.0" y="146" text-anchor="middle" font-size="10.5" font-weight="400" fill="#64748b" >frontend/src/</text>
+  <rect x="70" y="165" width="250" height="100" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="1.4"/>
+  <text x="195.0" y="185" text-anchor="middle" font-size="9.5" font-weight="400" fill="#4338ca" font-style="italic" >«package»</text>
+  <text x="195.0" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e1b4b" >auth/</text>
+  <text x="195.0" y="224" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Sesión, login,</text>
+  <text x="195.0" y="236.5" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >rutas protegidas</text>
+  <text x="195.0" y="249.0" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >(personal)</text>
+  <rect x="340" y="165" width="250" height="100" rx="8" fill="#eef6ff" stroke="#2a5c8a" stroke-width="1.4"/>
+  <text x="465.0" y="185" text-anchor="middle" font-size="9.5" font-weight="400" fill="#2a5c8a" font-style="italic" >«package»</text>
+  <text x="465.0" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e3a5f" >portal/</text>
+  <text x="465.0" y="224" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Auth y páginas del</text>
+  <text x="465.0" y="236.5" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Portal (propietario)</text>
+  <text x="465.0" y="249.0" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >— árbol aparte</text>
+  <rect x="610" y="165" width="160" height="100" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="1.4"/>
+  <text x="690.0" y="185" text-anchor="middle" font-size="9.5" font-weight="400" fill="#4338ca" font-style="italic" >«package»</text>
+  <text x="690.0" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e1b4b" >lib/</text>
+  <text x="690.0" y="224" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Cliente Supabase,</text>
+  <text x="690.0" y="236.5" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >helpers, errors.ts</text>
+  <rect x="790" y="165" width="170" height="100" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="1.4"/>
+  <text x="875.0" y="185" text-anchor="middle" font-size="9.5" font-weight="400" fill="#4338ca" font-style="italic" >«package»</text>
+  <text x="875.0" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1e1b4b" >types/</text>
+  <text x="875.0" y="224" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Tipos de dominio</text>
+  <text x="875.0" y="236.5" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >(dominio.ts)</text>
+  <rect x="70" y="305" width="520" height="70" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="1.4"/>
+  <text x="94" y="329" text-anchor="start" font-size="9.5" font-weight="400" fill="#4338ca" font-style="italic" >«package»</text>
+  <text x="94" y="349" text-anchor="start" font-size="13" font-weight="700" fill="#1e1b4b" >layout/</text>
+  <text x="220" y="339" text-anchor="start" font-size="10" font-weight="400" fill="#334155" >AppLayout (Drawer/AppBar) + modulos.ts —</text>
+  <text x="220" y="355" text-anchor="start" font-size="10" font-weight="400" fill="#334155" >navegación filtrada por rol (RI-002)</text>
+  <rect x="70" y="395" width="890" height="430" rx="12" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="515.0" y="417" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4c1d95" ></text>
+  <text x="515.0" y="419" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95" >modules/ — un módulo funcional = un subdirectorio</text>
+  <rect x="100" y="420" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="195.0" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >pacientes/</text>
+  <text x="195.0" y="462" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Pacientes y</text>
+  <text x="195.0" y="475" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Propietarios</text>
+  <text x="195.0" y="507" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 1)</text>
+  <rect x="310" y="420" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="405.0" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >agenda/</text>
+  <text x="405.0" y="462" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Agenda y Citas</text>
+  <text x="405.0" y="475" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >+ Lista de espera</text>
+  <text x="405.0" y="507" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 2)</text>
+  <rect x="520" y="420" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="615.0" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >historial/</text>
+  <text x="615.0" y="462" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Historial Clínico</text>
+  <text x="615.0" y="475" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >(exclusivo Vet.)</text>
+  <text x="615.0" y="507" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 3)</text>
+  <rect x="730" y="420" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="825.0" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >inventario/</text>
+  <text x="825.0" y="462" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Inventario y</text>
+  <text x="825.0" y="475" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Medicamentos</text>
+  <text x="825.0" y="507" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 4)</text>
+  <rect x="100" y="535" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="195.0" y="559" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >compras/</text>
+  <text x="195.0" y="577" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Compras y</text>
+  <text x="195.0" y="590" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Proveedores</text>
+  <text x="195.0" y="622" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 7)</text>
+  <rect x="310" y="535" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="405.0" y="559" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >facturacion/</text>
+  <text x="405.0" y="577" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Facturación</text>
+  <text x="405.0" y="590" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >y Reportes</text>
+  <text x="405.0" y="622" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 5)</text>
+  <rect x="520" y="535" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="615.0" y="559" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >dashboard/</text>
+  <text x="615.0" y="577" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Panel de inicio</text>
+  <text x="615.0" y="590" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >(KPIs por rol)</text>
+  <text x="615.0" y="622" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Fase 6)</text>
+  <rect x="730" y="535" width="190" height="95" rx="7" fill="#ffffff" stroke="#6d28d9" stroke-width="1.2"/>
+  <text x="825.0" y="559" text-anchor="middle" font-size="12" font-weight="700" fill="#3b0764" >administracion/</text>
+  <text x="825.0" y="577" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >Administración</text>
+  <text x="825.0" y="590" text-anchor="middle" font-size="9" font-weight="400" fill="#475569" >del sistema</text>
+  <text x="825.0" y="622" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >(Módulo 6)</text>
+  <text x="515.0" y="810" text-anchor="middle" font-size="9.5" font-weight="400" fill="#7c3aed" font-style="italic" >Cada carpeta sigue el mismo patrón: página + api.ts + diálogos</text>
+  <rect x="1080" y="100" width="520" height="760" rx="12" fill="#f7fdf9" stroke="#15803d" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="1340.0" y="122" text-anchor="middle" font-size="12.5" font-weight="700" fill="#14532d" ></text>
+  <text x="1340.0" y="128" text-anchor="middle" font-size="15.5" font-weight="700" fill="#14532d" >Backend — Supabase (BaaS)</text>
+  <text x="1340.0" y="146" text-anchor="middle" font-size="10.5" font-weight="400" fill="#64748b" >supabase/</text>
+  <rect x="1110" y="165" width="460" height="110" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="1.4"/>
+  <text x="1340.0" y="185" text-anchor="middle" font-size="9.5" font-weight="400" fill="#15803d" font-style="italic" >«package»</text>
+  <text x="1340.0" y="203" text-anchor="middle" font-size="12.5" font-weight="700" fill="#052e16" >migrations/</text>
+  <text x="1340.0" y="224" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >15 migraciones SQL — esquema versionado</text>
+  <text x="1340.0" y="236.5" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >(tablas, RLS, triggers, funciones, vistas)</text>
+  <text x="1340.0" y="249.0" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >único origen de verdad del esquema</text>
+  <rect x="1110" y="305" width="460" height="430" rx="12" fill="#ecfdf5" stroke="#047857" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="1340.0" y="327" text-anchor="middle" font-size="12.5" font-weight="700" fill="#064e3b" ></text>
+  <text x="1340.0" y="329" text-anchor="middle" font-size="12.5" font-weight="700" fill="#064e3b" >functions/ — Edge Functions (Deno, service_role)</text>
+  <rect x="1130" y="400" width="130" height="100" rx="7" fill="#ffffff" stroke="#047857" stroke-width="1.2"/>
+  <text x="1195.0" y="422" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >admin-</text>
+  <text x="1195.0" y="437" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >usuarios/</text>
+  <text x="1195.0" y="490" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >Módulo 6</text>
+  <text x="1195.0" y="462" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >Alta/gestión</text>
+  <text x="1195.0" y="474" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >de cuentas</text>
+  <rect x="1275" y="400" width="130" height="100" rx="7" fill="#ffffff" stroke="#047857" stroke-width="1.2"/>
+  <text x="1340.0" y="422" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >portal-</text>
+  <text x="1340.0" y="437" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >acceso/</text>
+  <text x="1340.0" y="490" text-anchor="middle" font-size="8.5" font-weight="400" fill="#94a3b8" >Módulo 8</text>
+  <text x="1340.0" y="462" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >Alta y reenvío</text>
+  <text x="1340.0" y="474" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >acceso Portal</text>
+  <rect x="1420" y="400" width="130" height="100" rx="7" fill="#ffffff" stroke="#047857" stroke-width="1.2"/>
+  <text x="1485.0" y="422" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >portal-olvide-</text>
+  <text x="1485.0" y="437" text-anchor="middle" font-size="10.5" font-weight="700" fill="#064e3b" >password/</text>
+  <text x="1485.0" y="462" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >Recupera</text>
+  <text x="1485.0" y="474" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >contraseña</text>
+  <rect x="1130" y="520" width="420" height="90" rx="7" fill="#ffffff" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="1340.0" y="546" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1e293b" >_shared/</text>
+  <text x="1340.0" y="566" text-anchor="middle" font-size="9.5" font-weight="400" fill="#475569" >Código común: contraseñas y envío de correo (SMTP)</text>
+  <text x="1340.0" y="586" text-anchor="middle" font-size="9" font-weight="400" fill="#94a3b8" font-style="italic">usado por portal-acceso/ y portal-olvide-password/</text>
+  <text x="1340.0" y="701" text-anchor="middle" font-size="9.5" font-weight="400" fill="#047857" font-style="italic" >Cada función comprueba ella misma el rol de quien llama</text>
+  <text x="1340.0" y="717" text-anchor="middle" font-size="9.5" font-weight="400" fill="#047857" font-style="italic" >(service_role bypassa RLS por completo)</text>
+  <rect x="1110" y="760" width="460" height="60" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  <text x="1340.0" y="780" text-anchor="middle" font-size="12.5" font-weight="700" fill="#334155" >seed.sql</text>
+  <text x="1340.0" y="801" text-anchor="middle" font-size="9" font-weight="400" fill="#334155" >Datos de prueba — solo entorno local, nunca producción</text>
+  <path d="M320,195.0 C410,300 520,300 610,195.0" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <rect x="428.68" y="288.5" width="72.64" height="14.5" fill="#ffffff" opacity="0.88"/>
+  <text x="465.0" y="300" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >auth/ usa lib/</text>
+  <line x1="590" y1="195.0" x2="610" y2="235.0" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <path d="M150.0,305 C140.0,280 150.0,290 160.0,265" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <line x1="150.0" y1="375" x2="335.0" y2="395" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <rect x="209.86" y="377.5" width="20.28" height="14.5" fill="#ffffff" opacity="0.88"/>
+  <text x="220.0" y="389.0" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >usa</text>
+  <path d="M710,395 C700,335 700.0,325 690.0,265" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <path d="M860,395 C870,335 865.0,325 875.0,265" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <rect x="735.12" y="328.5" width="129.76" height="14.5" fill="#ffffff" opacity="0.88"/>
+  <text x="800" y="340" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >modules/ usa lib/ y types/</text>
+  <path d="M770,215.0 C860,300 1010,300 1110,220.0" fill="none" stroke="#b45309" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#net)"/>
+  <rect x="979.4" y="279" width="101.2" height="16" fill="#ffffff" opacity="0.88"/>
+  <text x="1030" y="292" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e" >PostgREST / HTTPS</text>
+  <rect x="972.26" y="296.5" width="115.48" height="14.5" fill="#ffffff" opacity="0.88"/>
+  <text x="1030" y="308" text-anchor="middle" font-size="8.5" font-weight="400" fill="#92400e" >(API REST autogenerada)</text>
+  <path d="M425.0,265 C760,300 1300.0,372 1340.0,400" fill="none" stroke="#b45309" stroke-width="1.8" stroke-dasharray="7 4" marker-end="url(#net)"/>
+  <path d="M505.0,265 C820,330 1425.0,385 1485.0,400" fill="none" stroke="#b45309" stroke-width="1.8" stroke-dasharray="7 4" marker-end="url(#net)"/>
+  <rect x="678.88" y="343" width="162.24" height="15" fill="#ffffff" opacity="0.88"/>
+  <text x="760" y="355" text-anchor="middle" font-size="9" font-weight="400" fill="#92400e" >portal/ invoca portal-acceso/ y</text>
+  <rect x="656.2" y="358" width="207.60000000000002" height="15" fill="#ffffff" opacity="0.88"/>
+  <text x="760" y="370" text-anchor="middle" font-size="9" font-weight="400" fill="#92400e" >portal-olvide-password/ (Edge Functions)</text>
+  <path d="M920,582.5 C1010,582.5 1020,450.0 1130,450.0" fill="none" stroke="#b45309" stroke-width="1.8" stroke-dasharray="7 4" marker-end="url(#net)"/>
+  <rect x="956.56" y="538.5" width="116.88000000000001" height="15" fill="#ffffff" opacity="0.88"/>
+  <text x="1015.0" y="550.5" text-anchor="middle" font-size="9" font-weight="400" fill="#92400e" >administracion/ invoca</text>
+  <rect x="974.2" y="553.5" width="81.60000000000001" height="15" fill="#ffffff" opacity="0.88"/>
+  <text x="1015.0" y="565.5" text-anchor="middle" font-size="9" font-weight="400" fill="#92400e" >admin-usuarios/</text>
+  <line x1="1340.0" y1="500" x2="1340.0" y2="520" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <line x1="1485.0" y1="500" x2="1485.0" y2="520" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <rect x="1306.06" y="501.5" width="67.88" height="14.5" fill="#ffffff" opacity="0.88"/>
+  <text x="1340.0" y="513" text-anchor="middle" font-size="8.5" font-weight="400" fill="#475569" >usan _shared/</text>
+  <rect x="40" y="880" width="760" height="230" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="60" y="907" text-anchor="start" font-size="13" font-weight="700" fill="#1e293b" >Leyenda</text>
+  <rect x="60" y="922" width="46" height="30" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="1.3"/>
+  <text x="120" y="941" text-anchor="start" font-size="10.5" font-weight="400" fill="#334155" >Paquete (carpeta de código real del repositorio)</text>
+  <rect x="60" y="964" width="46" height="30" rx="6" fill="#fafaff" stroke="#4338ca" stroke-width="1.3" stroke-dasharray="5 3"/>
+  <text x="120" y="983" text-anchor="start" font-size="10.5" font-weight="400" fill="#334155" >Agrupación de paquetes (borde punteado = contenedor)</text>
+  <line x1="60" y1="1016" x2="106" y2="1016" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#dep)"/>
+  <text x="120" y="1020" text-anchor="start" font-size="10.5" font-weight="400" fill="#334155" >Dependencia en el mismo proceso (import de TypeScript)</text>
+  <line x1="60" y1="1046" x2="106" y2="1046" stroke="#b45309" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#net)"/>
+  <text x="120" y="1050" text-anchor="start" font-size="10.5" font-weight="400" fill="#334155" >Llamada de red — PostgREST o Edge Function (cruza SPA ↔ Supabase)</text>
+  <text x="60" y="1080" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >No hay backend propio: el paquete Frontend nunca importa código del Backend —</text>
+  <text x="60" y="1095" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >toda comunicación entre ambos ocurre por HTTP, nunca por import directo.</text>
+  <rect x="830" y="880" width="780" height="230" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="850" y="907" text-anchor="start" font-size="13" font-weight="700" fill="#1e293b" >Notas</text>
+  <text x="850" y="930" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >• auth/ y portal/ son árboles de autenticación completamente separados: comparten el</text>
+  <text x="850" y="945" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >   mismo cliente de Supabase (lib/), pero nunca se importan entre sí — el propietario de</text>
+  <text x="850" y="960" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >   la mascota no es "usuario del sistema" en el sentido de personal.</text>
+  <text x="850" y="975" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >• modules/administracion/ es el único módulo de frontend que invoca una Edge</text>
+  <text x="850" y="990" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >   Function directamente (admin-usuarios/); el resto de módulos solo usa PostgREST.</text>
+  <text x="850" y="1005" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >• _shared/ no se despliega como función propia: Supabase reserva los directorios</text>
+  <text x="850" y="1020" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >   con guion bajo para código común entre Edge Functions.</text>
+  <text x="850" y="1035" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >• Dentro de modules/, cada carpeta sigue el mismo patrón interno: una página,</text>
+  <text x="850" y="1050" text-anchor="start" font-size="10" font-weight="400" fill="#475569" >   un api.ts con las consultas a Supabase, y diálogos para alta/edición.</text>
+  <text x="850" y="1096" text-anchor="start" font-size="9.5" font-weight="400" fill="#94a3b8" >Fuente: estructura real de frontend/src/ y supabase/ · Estado al 2026-08-26</text>
+  </svg>
