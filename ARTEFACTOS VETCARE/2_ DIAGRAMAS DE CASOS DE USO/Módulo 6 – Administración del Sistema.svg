@@ -1,0 +1,62 @@
+<svg viewBox="0 0 1250 760" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="uc_arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#334155" stroke-width="1.3"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1250" height="760" fill="#ffffff"/>
+  <rect x="170" y="15" width="1020" height="640" fill="none" stroke="#1e293b" stroke-width="1.2"/>
+  <text x="680.0" y="33" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">Módulo 6 – Administración del sistema</text>
+  <g stroke="#1e293b" stroke-width="1.4" fill="none">
+      <circle cx="70" cy="242" r="9" fill="#ffffff"/>
+      <line x1="70" y1="251" x2="70" y2="280"/>
+      <line x1="57" y1="260" x2="83" y2="260"/>
+      <line x1="70" y1="280" x2="58" y2="304"/>
+      <line x1="70" y1="280" x2="82" y2="304"/>
+    </g>
+  <text x="70" y="336" text-anchor="middle" font-size="11" fill="#0f172a">Administrador</text>
+  <ellipse cx="630" cy="95" rx="260.0" ry="30.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="630" y="98.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar usuarios registrados</text>
+  <ellipse cx="380" cy="235" rx="115.0" ry="45.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="380" y="232.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Editar datos y rol</text>
+  <text x="380" y="245.4" text-anchor="middle" font-size="10.5" fill="#0f172a">de usuario</text>
+  <ellipse cx="630" cy="235" rx="115.0" ry="45.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="630" y="232.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Restablecer contraseña</text>
+  <text x="630" y="245.4" text-anchor="middle" font-size="10.5" fill="#0f172a">de usuario</text>
+  <ellipse cx="890" cy="235" rx="125.0" ry="45.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="890" y="232.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Activar o desactivar</text>
+  <text x="890" y="245.4" text-anchor="middle" font-size="10.5" fill="#0f172a">cuenta de usuario</text>
+  <path d="M380,190.0 L380,125.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="342.0" y="148.5" width="76" height="14" fill="#ffffff"/>
+  <text x="380.0" y="159.5" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <path d="M630,190.0 L630,125.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="592.0" y="148.5" width="76" height="14" fill="#ffffff"/>
+  <text x="630.0" y="159.5" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <path d="M890,190.0 L890,125.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="852.0" y="148.5" width="76" height="14" fill="#ffffff"/>
+  <text x="890.0" y="159.5" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <ellipse cx="250" cy="400" rx="110.0" ry="35.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="250" y="403.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Registrar usuario nuevo</text>
+  <ellipse cx="520" cy="400" rx="105.0" ry="35.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="520" y="403.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Registrar rol nuevo</text>
+  <ellipse cx="830" cy="400" rx="140.0" ry="35.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="830" y="397.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Gestionar catálogo de</text>
+  <text x="830" y="410.4" text-anchor="middle" font-size="10.5" fill="#0f172a">especies y razas</text>
+  <ellipse cx="370" cy="540" rx="130.0" ry="35.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="370" y="537.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Editar parámetros</text>
+  <text x="370" y="550.4" text-anchor="middle" font-size="10.5" fill="#0f172a">del sistema</text>
+  <ellipse cx="680" cy="540" rx="140.0" ry="35.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="680" y="537.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar bitácora</text>
+  <text x="680" y="550.4" text-anchor="middle" font-size="10.5" fill="#0f172a">de auditoría</text>
+  <polyline points="70,320 505,320 505,125.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 380,320 380,280.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 630,320 630,280.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 890,320 890,280.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 250,320 250,365.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 520,320 520,365.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 830,320 830,365.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 370,320 370,505.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="70,320 680,320 680,505.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <text x="190" y="610" text-anchor="start" font-size="9" fill="#94a3b8">Nota: el alta de una cuenta nueva ("Registrar usuario nuevo") toca auth.users, fuera del alcance</text>
+  <text x="190" y="623" text-anchor="start" font-size="9" fill="#94a3b8">de la API de datos (RI-007) — se resuelve con la Edge Function admin-usuarios (SECURITY DEFINER).</text>
+  </svg>
