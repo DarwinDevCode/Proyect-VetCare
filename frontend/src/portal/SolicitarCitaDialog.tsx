@@ -17,6 +17,7 @@ import { mensajeError } from '../lib/errors';
 interface Props {
   abierto: boolean;
   mascotas: PacienteConFicha[];
+  fullScreen?: boolean;
   onCerrar: () => void;
   onCreada: () => void;
 }
@@ -24,7 +25,7 @@ interface Props {
 // RF-043: pedir una cita, sin elegir veterinario ni horario exacto (RN-021) --
 // solo mascota, motivo y una fecha preferida opcional. Recepcion la confirma
 // despues asignando el cupo real (CitaDetalleDialog.tsx).
-export function SolicitarCitaDialog({ abierto, mascotas, onCerrar, onCreada }: Props) {
+export function SolicitarCitaDialog({ abierto, mascotas, fullScreen, onCerrar, onCreada }: Props) {
   const [idPaciente, setIdPaciente] = useState<number | ''>('');
   const [motivo, setMotivo] = useState('');
   const [fechaPreferida, setFechaPreferida] = useState('');
@@ -71,7 +72,7 @@ export function SolicitarCitaDialog({ abierto, mascotas, onCerrar, onCreada }: P
   }
 
   return (
-    <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth>
+    <Dialog open={abierto} onClose={onCerrar} maxWidth="sm" fullWidth fullScreen={fullScreen}>
       <DialogTitle>Solicitar una cita</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>

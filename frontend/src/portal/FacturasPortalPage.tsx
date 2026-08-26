@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
+  Card,
+  CardContent,
   Chip,
   Dialog,
   DialogContent,
@@ -17,6 +19,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -28,6 +32,8 @@ import { ETIQUETA_ESTADO_COBRO, ETIQUETA_FORMA_PAGO, COLOR_ESTADO_COBRO, formato
 
 // RF-045: mis facturas, solo lectura -- el portal nunca cobra ni emite.
 export function FacturasPortalPage() {
+  const theme = useTheme();
+  const esMovil = useMediaQuery(theme.breakpoints.down('sm'));
   const [facturas, setFacturas] = useState<EstadoFactura[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,42 +74,65 @@ export function FacturasPortalPage() {
         </Alert>
       )}
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Número</TableCell>
-              <TableCell>Fecha</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell>Estado</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {!cargando && facturas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
-                  <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-                    <ReceiptLongIcon fontSize="large" />
-                    <Typography variant="body2">Todavía no tienes facturas registradas.</Typography>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            )}
-            {facturas.map((f) => (
-              <TableRow key={f.id_factura} hover sx={{ cursor: 'pointer' }} onClick={() => setSeleccionada(f)}>
-                <TableCell>{f.numero}</TableCell>
-                <TableCell>{dayjs(f.fecha_emision).format('DD/MM/YYYY')}</TableCell>
-                <TableCell align="right">{formatoMoneda(f.total)}</TableCell>
-                <TableCell>
-                  <Chip label={ETIQUETA_ESTADO_COBRO[f.estado_cobro]} size="small" color={COLOR_ESTADO_COBRO[f.estado_cobro]} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {!cargando && facturas.length === 0 && (
+        <Paper variant="outlined" sx={{ py: 6 }}>
+          <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+            <ReceiptLongIcon fontSize="large" />
+            <Typography variant="body2">Todavía no tienes facturas registradas.</Typography>
+          </Stack>
+        </Paper>
+      )}
 
-      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="sm" fullWidth>
+      {facturas.length > 0 &&
+        (esMovil ? (
+          <Stack spacing={1.5}>
+            {facturas.map((f) => (
+              <Card key={f.id_factura} variant="outlined" onClick={() => setSeleccionada(f)} sx={{ cursor: 'pointer' }}>
+                <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                  <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                      {f.numero}
+                    </Typography>
+                    <Chip label={ETIQUETA_ESTADO_COBRO[f.estado_cobro]} size="small" color={COLOR_ESTADO_COBRO[f.estado_cobro]} />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {dayjs(f.fecha_emision).format('DD/MM/YYYY')}
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
+                    {formatoMoneda(f.total)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Número</TableCell>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell align="right">Total</TableCell>
+                  <TableCell>Estado</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {facturas.map((f) => (
+                  <TableRow key={f.id_factura} hover sx={{ cursor: 'pointer' }} onClick={() => setSeleccionada(f)}>
+                    <TableCell>{f.numero}</TableCell>
+                    <TableCell>{dayjs(f.fecha_emision).format('DD/MM/YYYY')}</TableCell>
+                    <TableCell align="right">{formatoMoneda(f.total)}</TableCell>
+                    <TableCell>
+                      <Chip label={ETIQUETA_ESTADO_COBRO[f.estado_cobro]} size="small" color={COLOR_ESTADO_COBRO[f.estado_cobro]} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ))}
+
+      <Dialog open={!!seleccionada} onClose={() => setSeleccionada(null)} maxWidth="sm" fullWidth fullScreen={esMovil}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
           Factura {seleccionada?.numero}
           <IconButton sx={{ ml: 'auto' }} onClick={() => setSeleccionada(null)}>
@@ -112,26 +141,31 @@ export function FacturasPortalPage() {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Concepto</TableCell>
-                  <TableCell align="right">Cant.</TableCell>
-                  <TableCell align="right">Precio</TableCell>
-                  <TableCell align="right">Subtotal</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {detalle.map((linea) => (
-                  <TableRow key={linea.id_detalle}>
-                    <TableCell>{linea.descripcion}</TableCell>
-                    <TableCell align="right">{linea.cantidad}</TableCell>
-                    <TableCell align="right">{formatoMoneda(linea.precio_unitario)}</TableCell>
-                    <TableCell align="right">{formatoMoneda(linea.subtotal_linea)}</TableCell>
+            {/* 4 columnas numericas no entran en el ancho de un dialogo movil sin
+                achicar la letra hasta ilegible -- se deja scroll horizontal propio
+                en vez de reestructurar esta tabla secundaria en tarjetas. */}
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Concepto</TableCell>
+                    <TableCell align="right">Cant.</TableCell>
+                    <TableCell align="right">Precio</TableCell>
+                    <TableCell align="right">Subtotal</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {detalle.map((linea) => (
+                    <TableRow key={linea.id_detalle}>
+                      <TableCell>{linea.descripcion}</TableCell>
+                      <TableCell align="right">{linea.cantidad}</TableCell>
+                      <TableCell align="right">{formatoMoneda(linea.precio_unitario)}</TableCell>
+                      <TableCell align="right">{formatoMoneda(linea.subtotal_linea)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
 
             {seleccionada && (
               <Box sx={{ textAlign: 'right' }}>

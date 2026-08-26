@@ -1497,3 +1497,48 @@ recreó el acceso con `accion: 'automatico'` una vez corregido el enlace, así q
 recibió por correo después de esto ya tiene la URL correcta. Patrón a tener presente: antes de
 "limpiar" cualquier fila creada durante una verificación, confirmar primero que no es un dato
 real que el usuario generó por su cuenta mientras reproducía el problema.
+
+### Portal del propietario responsive para móvil (2026-08-26)
+
+Pedido explícito del cliente: el Portal (`frontend/src/portal/`) se pensó y construyó en la
+Fase 5 con MUI responsive por defecto (`Grid`/`Stack` con breakpoints), pero nunca se probó ni
+se terminó de adaptar para una pantalla de celular real — el caso de uso más probable para un
+propietario, a diferencia del personal, que usa equipos de la clínica.
+
+- **`PortalLayout.tsx` — barra de navegación fija abajo en `xs`.** Los tres enlaces de texto del
+  `AppBar` (`Button` con `display: { xs: 'none', sm: 'inline-flex' }`) no entraban en una fila
+  de una pantalla angosta junto al logo y el avatar. Se agregó una `BottomNavigation` fija
+  (`position: fixed, bottom: 0`), visible solo en `xs`, con los mismos tres destinos e iconos
+  (`PetsIcon`/`EventIcon`/`ReceiptLongIcon`, ya usados como estado vacío en cada página) —
+  patrón estándar de "app" para navegación con el pulgar. El `Container` del contenido suma
+  `pb: 9` en `xs` para que la barra fija no tape el final de la página.
+- **`CitasPortalPage.tsx` / `FacturasPortalPage.tsx` — tarjetas en vez de tabla en `xs`.** Una
+  tabla de 4-5 columnas no entra en 375px sin scroll horizontal incómodo. Mismo criterio que
+  `esMovil` ya establecido en `modules/agenda/AgendaPage.tsx` (`useMediaQuery(theme.breakpoints.down('sm'))`):
+  en `xs` se renderiza una `Stack` de `Card` (una por fila, mismo patrón visual que las tarjetas
+  de `MascotasPortalPage`), en `sm+` se mantiene la tabla original. Es un cambio de qué se
+  renderiza, no solo de estilo (`display:none` no habría bastado: la tabla seguiría exigiendo su
+  ancho mínimo para el layout).
+- **Diálogos a pantalla completa en `xs`** (`SolicitarCitaDialog`, carnet de vacunas en
+  `MascotasPortalPage`, detalle de factura en `FacturasPortalPage`): `fullScreen={esMovil}`.
+  **Bug real encontrado durante esta misma verificación**: `MuiDialog.styleOverrides.paper` en
+  `theme.ts` fija un `borderRadius` grande sin condición — en un diálogo `fullScreen` (que ocupa
+  el viewport exacto, sin margen) ese radio recorta las cuatro esquinas del contenido dejando ver
+  el fondo detrás, un defecto visual y no una decisión de diseño. Corregido con la forma función
+  de `styleOverrides.paper` que soporta MUI (`({ ownerState }) => ({ borderRadius: ownerState.fullScreen ? 0 : ORGANIC.radius.lg, ... })`)
+  — corrige el problema para **cualquier** diálogo `fullScreen` del proyecto, no solo los tres
+  del portal, sin tener que repetir el override en cada uno. Verificado que un diálogo normal
+  (no `fullScreen`) en escritorio sigue con `borderRadius: 32px` sin cambios (probado con
+  "Nuevo paciente" de Pacientes, Módulo 1).
+- El detalle de factura conserva su tabla de conceptos (4 columnas numéricas) en vez de
+  convertirla en tarjetas — es contenido secundario dentro de un diálogo ya `fullScreen`, así
+  que se envolvió en un `Box` con `overflowX: 'auto'` en vez de reestructurarla.
+
+**Verificado** con la Browser pane en viewport 375×812 (`resize_window` preset `mobile`),
+navegando el portal con la cuenta `propietario@vetcare.local`: nav inferior visible con la
+sección correcta resaltada (`Mui-selected`) y los enlaces de texto del `AppBar` con
+`display: none` computado; `Mis citas`/`Mis facturas` sin ninguna `<table>` en el DOM,
+tarjetas en su lugar; los tres diálogos abren a 375×812 exactos con `border-radius: 0px`;
+tabla de conceptos de factura con `overflow-x: auto`. En viewport de escritorio (1280px), con
+`recepcion@vetcare.local`, el diálogo "Nuevo paciente" (staff, no `fullScreen`) mantiene
+`border-radius: 32px` — sin regresión fuera del portal. `npm run build` limpio.
