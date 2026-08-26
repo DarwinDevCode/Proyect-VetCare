@@ -5,6 +5,7 @@ import {
   Avatar,
   Badge,
   Box,
+  Divider,
   Drawer,
   IconButton,
   InputAdornment,
@@ -14,6 +15,7 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Popover,
   TextField,
   Toolbar,
   Typography,
@@ -24,10 +26,11 @@ import PetsIcon from '@mui/icons-material/Pets';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useAuth } from '../auth/AuthContext';
 import { modulosParaRol } from './modulos';
 import { ORGANIC } from '../theme';
-import { listarProductos } from '../modules/inventario/api';
+import { listarNotificaciones, type Notificacion } from './notificaciones';
 
 const ANCHO_DRAWER = 260;
 
@@ -44,22 +47,27 @@ export function AppLayout() {
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const [alertaStockCount, setAlertaStockCount] = useState(0);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [panelNotificaciones, setPanelNotificaciones] = useState<HTMLElement | null>(null);
 
-  // Fase 6: la campana era solo visual desde la Fase 0, a proposito -- se
-  // pospuso conectarla hasta que existiera un consumidor real de la alerta de
-  // stock (el KPI del Dashboard). producto_select permite a los tres roles
-  // leer el catalogo (ver migracion de RLS), asi que la cuenta funciona igual
-  // para los tres; el click siempre lleva a "/inicio" y no a "/inventario"
-  // directamente porque esa ruta esta cerrada para Recepcionista (RutaProtegida).
+  // La campana era solo visual desde la Fase 0, a proposito -- se pospuso
+  // conectarla hasta que existiera un consumidor real (el KPI del Dashboard,
+  // Fase 6). Ahora abre un panel real con el historial de alertas vigentes
+  // por rol (stock bajo, lotes por vencer, solicitudes de cita del portal,
+  // lista de espera -- ver notificaciones.ts), sin distinguir leidas/no
+  // leidas ni guardar estado propio: cada apertura recalcula la lista tal
+  // como esta en ese momento, pedido explicito del usuario.
   useEffect(() => {
     if (!sesion) return;
-    listarProductos()
-      .then((productos) => {
-        setAlertaStockCount(productos.filter((p) => p.activo && p.existencia_actual <= p.nivel_minimo).length);
-      })
-      .catch(() => setAlertaStockCount(0));
+    listarNotificaciones(sesion.rol.codigo)
+      .then(setNotificaciones)
+      .catch(() => setNotificaciones([]));
   }, [sesion]);
+
+  function irANotificacion(n: Notificacion) {
+    setPanelNotificaciones(null);
+    navigate(n.ruta);
+  }
 
   if (!sesion) return null;
 
@@ -152,11 +160,45 @@ export function AppLayout() {
             }}
           />
           <Box sx={{ flexGrow: 1 }} />
-          <IconButton onClick={() => navigate('/inicio')} aria-label="Alertas de stock">
-            <Badge badgeContent={alertaStockCount} color="warning">
+          <IconButton
+            onClick={(e) => setPanelNotificaciones(e.currentTarget)}
+            aria-label="Notificaciones"
+          >
+            <Badge badgeContent={notificaciones.length} color="warning">
               <NotificationsIcon />
             </Badge>
           </IconButton>
+          <Popover
+            open={!!panelNotificaciones}
+            anchorEl={panelNotificaciones}
+            onClose={() => setPanelNotificaciones(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { width: 340, maxHeight: 420 } } }}
+          >
+            <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 1 }}>
+              Notificaciones
+            </Typography>
+            <Divider />
+            {notificaciones.length === 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, py: 4, color: 'text.secondary' }}>
+                <NotificationsNoneIcon fontSize="large" />
+                <Typography variant="body2">No hay notificaciones</Typography>
+              </Box>
+            ) : (
+              <List sx={{ py: 0 }}>
+                {notificaciones.map((n) => (
+                  <ListItemButton key={n.id} onClick={() => irANotificacion(n)} sx={{ alignItems: 'flex-start', py: 1 }}>
+                    <ListItemText
+                      primary={n.texto}
+                      secondary={n.detalle}
+                      slotProps={{ secondary: { sx: { color: 'text.secondary' } } }}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
+          </Popover>
           <Chip label={ETIQUETA_ROL[sesion.rol.codigo] ?? sesion.rol.nombre} size="small" color="primary" variant="outlined" />
           <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
