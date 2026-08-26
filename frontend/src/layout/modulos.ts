@@ -4,6 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import type { RolCodigo } from '../types/dominio';
 
 // RI-002: el sistema presenta unicamente los modulos a los que el rol del
@@ -50,6 +51,13 @@ export const MODULOS: DefinicionModulo[] = [
     etiqueta: 'Facturación y Reportes',
     icono: ReceiptLongIcon,
     roles: ['recepcionista', 'administrador'],
+    implementado: true,
+  },
+  {
+    ruta: '/administracion',
+    etiqueta: 'Administración',
+    icono: AdminPanelSettingsIcon,
+    roles: ['administrador'],
     implementado: true,
   },
 ];

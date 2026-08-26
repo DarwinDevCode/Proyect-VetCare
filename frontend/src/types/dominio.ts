@@ -19,6 +19,37 @@ export interface Rol {
   descripcion: string | null;
 }
 
+export interface UsuarioConRol extends Usuario {
+  rol: Rol;
+}
+
+export interface ParametroSistema {
+  clave: string;
+  valor: string;
+  descripcion: string | null;
+  fecha_actualizacion: string;
+  id_usuario_actualizo: string | null;
+}
+
+export type AccionAuditoria = 'insert' | 'update';
+
+// Fila de bitacora_auditoria (modulo de Administracion). valores_anteriores es
+// null en un 'insert' -- no hay un "antes" que registrar.
+export interface EntradaAuditoria {
+  id_bitacora: number;
+  tabla: string;
+  id_registro: string | null;
+  accion: AccionAuditoria;
+  valores_anteriores: Record<string, unknown> | null;
+  valores_nuevos: Record<string, unknown>;
+  id_usuario: string | null;
+  fecha_hora: string;
+}
+
+export interface EntradaAuditoriaConUsuario extends EntradaAuditoria {
+  usuario: Pick<Usuario, 'nombres' | 'apellidos'> | null;
+}
+
 export interface Especie {
   id_especie: number;
   nombre: string;

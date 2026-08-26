@@ -9,6 +9,7 @@ import { AgendaPage } from './modules/agenda/AgendaPage';
 import { InventarioPage } from './modules/inventario/InventarioPage';
 import { HistorialPage } from './modules/historial/HistorialPage';
 import { FacturacionPage } from './modules/facturacion/FacturacionPage';
+import { AdministracionPage } from './modules/administracion/AdministracionPage';
 
 function PantallaCargando() {
   return (
@@ -87,6 +88,14 @@ export default function App() {
           element={
             <RutaProtegida rolesPermitidos={['recepcionista', 'administrador']}>
               <FacturacionPage />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/administracion"
+          element={
+            <RutaProtegida rolesPermitidos={['administrador']}>
+              <AdministracionPage />
             </RutaProtegida>
           }
         />

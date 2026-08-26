@@ -6,6 +6,21 @@ import type {
   FacturaListada,
   Pago,
 } from '../../types/dominio';
+import { PORCENTAJE_IMPUESTO_POR_DEFECTO } from './formato';
+
+// Modulo de Administracion (AD-15) permite editar este valor sin tocar
+// codigo; se lee en vivo aqui en vez de confiar solo en la constante, que
+// queda como respaldo si el parametro no estuviera cargado todavia.
+export async function obtenerPorcentajeImpuestoActual(): Promise<number> {
+  const { data, error } = await supabase
+    .from('parametro_sistema')
+    .select('valor')
+    .eq('clave', 'impuesto_defecto_pct')
+    .maybeSingle();
+  if (error || !data) return PORCENTAJE_IMPUESTO_POR_DEFECTO;
+  const numero = Number(data.valor);
+  return Number.isFinite(numero) ? numero : PORCENTAJE_IMPUESTO_POR_DEFECTO;
+}
 
 // Una atencion que todavia puede facturarse, tal como la devuelve
 // fn_atenciones_facturables. No trae ningun dato clinico a proposito: Recepcion
