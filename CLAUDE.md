@@ -1736,3 +1736,106 @@ cuenta que lo autentica, con contenido de "aquí está tu contraseña", coincide
 los filtros de Gmail marcan con más agresividad que un correo entre cuentas distintas. No es un
 bug de la aplicación; queda como nota operativa para cuando se pruebe con una cuenta de
 propietario real y distinta del remitente.
+
+### Suite de pruebas automatizadas — primera pasada (2026-08-26)
+
+El proyecto nunca tuvo pruebas automatizadas: toda la verificación documentada en este archivo,
+fase por fase, fue manual (`curl` contra RLS/reglas de negocio, navegador para UI). Pedido
+explícito del cliente. Dado el tamaño del esquema (15 tablas, ~40 políticas RLS, 3 Edge
+Functions, decenas de componentes), **esta primera pasada no intenta cobertura exhaustiva** —
+establece el patrón en los tres ecosistemas del proyecto y cubre lo más crítico y lo más
+reciente (el trabajo del Portal), con la misma filosofía "acotado, no todo" que ya usa el
+proyecto en otros lados. Sin runner común entre los tres — no hay uno natural entre
+Vite/frontend, Deno/Edge Functions y Postgres, e inventar uno sería complejidad innecesaria
+para un equipo reducido (RES-06).
+
+**1. Frontend — Vitest (`cd frontend && npm run test`), nuevo para el proyecto.**
+`@testing-library/react@^16` (primera versión con soporte real de React 19),
+`@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`. `vite.config.ts` pasa a
+importar `defineConfig` desde `vitest/config` en vez de `vite` (mismo `defineConfig`, con el
+tipado de `test` agregado — cero cambio de comportamiento del build de producción, verificado
+con `npm run build` después del cambio). `test.clearMocks: true` global — sin esto, un
+`vi.fn()` compartido entre pruebas del mismo archivo (patrón `vi.hoisted`) arrastraba llamadas
+de una prueba a la siguiente y hacía fallar aserciones de "no se llamó" que sí debían pasar.
+`src/test/setup.ts` mockea `window.matchMedia` (jsdom no lo implementa; MUI lo necesita para
+`useMediaQuery`, el patrón `esMovil` del Portal).
+- Unitarias: `edad.test.ts`, `formato.test.ts`, `errors.test.ts` (cubre cada rama de
+  `mensajeError`, incluido `P0001`, que CLAUDE.md ya documenta como corregido una vez —
+  vale la pena que no se rompa de nuevo en silencio), `disponibilidad.test.ts` (RF-011).
+- Componentes (`@testing-library/react`, mock en el límite de `lib/supabaseClient` — se
+  prueba el diálogo con su lógica real hasta la frontera de red, no un componente aislado):
+  `CambiarPasswordDialog.test.tsx`, `OlvidePasswordDialog.test.tsx` (prueba explícitamente que
+  el mensaje final es el mismo con éxito o con fallo de red — la propiedad de seguridad central
+  de ese diálogo, nunca revela si la cuenta existe).
+- **Hallazgo real al escribir las pruebas de componentes**: `getByLabelText('Correo')`
+  (coincidencia exacta) no encontraba el campo — el asterisco de "obligatorio" que MUI agrega
+  queda dentro del `textContent` del `<label>` (`"Correo *"`), así que hay que buscar con un
+  *regex* ancorado (`/^Correo/`) o `exact:false`, nunca un string exacto sin el asterisco.
+  Patrón a tener presente para cualquier prueba futura de un campo `required` de MUI.
+
+**2. Edge Functions — Deno test (nativo, sin dependencia nueva).**
+`deno test --allow-net --allow-env supabase/functions` desde la raíz del repo.
+- Unitarias, en `_shared/portalPassword.test.ts` (se exportaron `escaparHtml`/`plantillaHtml`,
+  antes privadas): `generarPasswordTemporal` (longitud, alfabeto sin `0/O/1/l/I`,
+  no-determinismo), `escaparHtml`, y una regresión de XSS explícita sobre `plantillaHtml`
+  (un `nombrePropietario` con `<script>` no debe quedar sin escapar en el HTML del correo).
+- Integración, contra el stack local ya corriendo (`supabase start`), mismas llamadas que se
+  venían haciendo a mano por `curl` durante toda la sesión, ahora repetibles:
+  `portal-acceso/index.test.ts` (sin `Authorization` → 401; JWT de veterinario → 403; JWT de
+  recepcionista con `automatico` sobre un propietario sin correo → `omitido:'sin_correo'`) y
+  `portal-olvide-password/index.test.ts` (correo existente vs. inexistente → misma respuesta
+  `{ok:true}`, la propiedad de no-enumeración; body vacío → 400).
+- **Decisión de diseño en las pruebas de integración, no solo en el código de la app**: ninguna
+  usa el propietario sembrado real (`propietario@vetcare.local`) como "cuenta que existe" —
+  reutilizarlo le cambiaría la contraseña real y le mandaría un correo real en cada corrida de
+  la suite (exactamente el problema que ya se documentó arriba con la cuenta de Gmail del
+  remitente). En su lugar, `portal-olvide-password/index.test.ts` toma prestado temporalmente
+  un propietario sembrado *sin* correo/portal (id 6), y `fn_cancelar_cita_portal_test.sql`
+  (pgTAP) crea sus propias citas de prueba en una fecha muy en el futuro (2031) que no choca
+  con el seed real — todo revertido en `afterAll`/`ROLLBACK`.
+- `portal-olvide-password`'s `beforeAll` originalmente intentó **crear** un propietario nuevo
+  con `service_role`, y falló con `permission denied for table propietario`: esa tabla solo
+  tiene `GRANT SELECT/UPDATE` a `service_role` (Fase 5, RI-008), nunca `INSERT`/`DELETE` — y
+  ampliar el grant solo para conveniencia de las pruebas habría dado a la app más privilegio
+  del que de verdad necesita. Se rediseñó para usar `UPDATE` sobre un propietario ya existente
+  en vez de `INSERT`+`DELETE`.
+
+**3. Base de datos — pgTAP (soporte nativo del CLI, `npx supabase test db --local` desde
+`supabase/`).** Archivos en `supabase/tests/*.sql`, cada uno `BEGIN; SELECT plan(N); ...;
+SELECT * FROM finish(); ROLLBACK;` — se revierte solo, no ensucia el seed (verificado: mismo
+conteo de filas en `cita`/`movimiento_inventario` antes y después de correr la suite completa).
+- `rn004_solapamiento_citas_test.sql`: RN-004 (EXCLUDE) rechaza el solapamiento; una cita no
+  solapada se acepta; una cancelada no cuenta (RN-005).
+- `rn010_existencia_no_negativa_test.sql`: un ajuste que dejaría existencia negativa es
+  rechazado por `fn_actualizar_existencia`.
+- `portal_tratamientos_estructural_test.sql`: `v_tratamientos_portal` tiene `tratamiento` pero
+  **no** tiene `diagnostico` ni `hallazgos` (`has_column`/`hasnt_column`) — la ampliación de
+  RN-006 queda verificada a nivel de estructura, no solo de política.
+- `fn_cancelar_cita_portal_test.sql`: simula el JWT del propietario sembrado con
+  `set local role authenticated; set local request.jwt.claim.sub = '<uuid>';` (mismo mecanismo
+  que usa `auth.uid()` en producción, confirmado antes de escribir la prueba con un `select
+  auth.uid(), fn_propietario_actual();` suelto) — cancela su propia cita programada; la misma
+  cita otra vez falla; una cita de otro propietario falla con un mensaje distinto (confirma que
+  la comprobación de dueño y la de estado son casos separados, no el mismo `if`).
+- **Bug real en las pruebas, no en el código de la app, encontrado corriendo la suite**:
+  `throws_ok(sql, codigo, descripcion)` de 3 argumentos de pgTAP es "inteligente" — si el 2do
+  argumento mide exactamente 5 caracteres (como cualquier SQLSTATE: `'23P01'`, `'23514'`,
+  `'P0001'`), lo reenvía a la variante de 4 argumentos poniendo el 3er argumento en el lugar de
+  **mensaje esperado**, no de descripción, y la descripción queda `NULL` — confirmado leyendo
+  `pg_proc.prosrc` de pgtap directamente, no adivinado. Los cuatro `throws_ok` de este proyecto
+  usan la forma explícita de 4 argumentos, `throws_ok(sql, codigo::char(5), NULL, descripcion)`,
+  para que el `NULL` en el 3er lugar le diga a pgTAP "no compares el mensaje, solo el código".
+  Patrón a tener presente para cualquier `throws_ok` futuro en este proyecto: **nunca la forma
+  de 3 argumentos con un código de error** — usar siempre la de 4 con `NULL` explícito.
+
+**Qué queda deliberadamente sin cubrir** (para la próxima pasada, no un olvido): las ~35
+políticas RLS restantes fuera de las cuatro invariantes de arriba, los triggers de
+Facturación/Inventario más allá de `fn_actualizar_existencia`, `fn_emitir_factura` completa
+(atomicidad, RN-013), y toda prueba de componente fuera de los dos diálogos de contraseña del
+Portal (el resto de la app sigue verificándose solo manualmente, como hasta ahora).
+
+**Verificado**: `npm run test` (frontend) 44/44 en verde, `npm run build` limpio después del
+cambio de `vite.config.ts`; `deno test --allow-net --allow-env supabase/functions` con
+`supabase start` corriendo, 10/10 en verde (7 unitarias + 3 grupos de integración); `npx
+supabase test db --local` 15/15 en verde, base de datos sin residuos después de correr toda la
+suite.
