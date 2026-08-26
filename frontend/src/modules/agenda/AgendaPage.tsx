@@ -7,6 +7,8 @@ import {
   IconButton,
   MenuItem,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -20,15 +22,17 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import dayjs, { type Dayjs } from 'dayjs';
 import type { CitaConDetalle, Usuario } from '../../types/dominio';
-import { listarCitasDelDia, listarCitasDeLaSemana, listarVeterinarios } from './api';
+import { listarCitasDelDia, listarCitasDeLaSemana, listarVeterinarios, type ListaEsperaConPaciente } from './api';
 import { mensajeError } from '../../lib/errors';
 import { AgendaGrid } from './AgendaGrid';
 import { AgendaSemanal } from './AgendaSemanal';
 import { NuevaCitaDialog } from './NuevaCitaDialog';
 import { CitaDetalleDialog } from './CitaDetalleDialog';
+import { ListaEsperaTab } from './ListaEsperaTab';
 import { useAuth } from '../../auth/AuthContext';
 
 type Vista = 'dia' | 'semana';
+type Seccion = 'agenda' | 'lista-espera';
 
 // Lunes de la semana que contiene "fecha" -- dayjs().day() da 0 (domingo) a 6
 // (sabado); sin el offset, restar "day()" dias llevaria a domingo, no a lunes.
@@ -42,6 +46,8 @@ function lunesDeLaSemana(fecha: Dayjs): Dayjs {
 interface PrefillNueva {
   idVeterinario?: string;
   hora?: Dayjs;
+  pacienteInicial?: CitaConDetalle['paciente'];
+  idListaEspera?: number;
 }
 
 export function AgendaPage() {
@@ -50,6 +56,7 @@ export function AgendaPage() {
   const theme = useTheme();
   const esMovil = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const [seccion, setSeccion] = useState<Seccion>('agenda');
   const [vista, setVista] = useState<Vista>('dia');
   const [fecha, setFecha] = useState<Dayjs>(() => dayjs());
   const [veterinarios, setVeterinarios] = useState<Usuario[]>([]);
@@ -111,6 +118,19 @@ export function AgendaPage() {
     setDialogoNuevaAbierto(true);
   }
 
+  // Wiring RF-015 (1i): "Agendar con este cupo" desde CitaDetalleDialog. Se cierra
+  // el detalle y se abre Nueva cita ya con paciente/veterinario/hora del cupo
+  // liberado -- el usuario solo confirma o ajusta, no vuelve a buscar nada.
+  function agendarDesdeListaEspera(entrada: ListaEsperaConPaciente, citaCancelada: CitaConDetalle) {
+    setCitaSeleccionada(null);
+    abrirNuevaCita({
+      idVeterinario: citaCancelada.id_veterinario,
+      hora: dayjs(citaCancelada.fecha_hora_inicio),
+      pacienteInicial: entrada.paciente,
+      idListaEspera: entrada.id_lista_espera,
+    });
+  }
+
   const veterinariosVisibles = veterinarios.filter((v) => veterinariosSeleccionados.includes(v.id_usuario));
   const citasSemanaDelVet = citas.filter((c) => c.id_veterinario === vetSemana);
 
@@ -129,13 +149,26 @@ export function AgendaPage() {
             Consulta y gestiona las citas programadas por veterinario y por día.
           </Typography>
         </Box>
-        {puedeGestionar && (
+        {seccion === 'agenda' && puedeGestionar && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirNuevaCita(null)}>
             Nueva cita
           </Button>
         )}
       </Stack>
 
+      <Tabs
+        value={seccion}
+        onChange={(_e, valor: Seccion) => setSeccion(valor)}
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab value="agenda" label="Agenda" />
+        <Tab value="lista-espera" label="Lista de espera" />
+      </Tabs>
+
+      {seccion === 'lista-espera' ? (
+        <ListaEsperaTab veterinarios={veterinarios} puedeGestionar={puedeGestionar} />
+      ) : (
+        <>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={2}
@@ -251,6 +284,8 @@ export function AgendaPage() {
           onClickCita={setCitaSeleccionada}
         />
       )}
+        </>
+      )}
 
       <NuevaCitaDialog
         abierto={dialogoNuevaAbierto}
@@ -267,6 +302,7 @@ export function AgendaPage() {
         puedeGestionar={puedeGestionar}
         onCerrar={() => setCitaSeleccionada(null)}
         onActualizado={() => recargar(fecha, vista)}
+        onAgendarDesdeListaEspera={agendarDesdeListaEspera}
       />
     </Box>
   );

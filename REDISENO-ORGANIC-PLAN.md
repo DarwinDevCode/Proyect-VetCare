@@ -1,7 +1,7 @@
 # Rediseño completo de VetCare — plan de implementación
 
-> **Estado (2026-08-26):** Fases 0, 1 (1a-1e) y 2 **completadas**. Fases 3-6 **aprobadas, sin
-> empezar**. Este documento es el plan de implementación completo,
+> **Estado (2026-08-26):** Fases 0, 1 (1a-1e), 2 y 3 **completadas**. Fases 4-6 **aprobadas,
+> sin empezar**. Este documento es el plan de implementación completo,
 > tal como se aprobó con el cliente antes de escribir código (sección "Fases de ejecución"
 > actualizada con el estado real de cada fase). El detalle de *qué* se hizo exactamente en
 > cada fase completada, con decisiones tomadas durante la implementación y desviaciones del
@@ -207,8 +207,8 @@ CLAUDE.md sección 14 para el detalle real de lo implementado:
 | **0** | Tema Organic + fuentes + restructuración de `AppLayout`/`modulos.ts`, sin tocar ningún módulo funcional. | ✅ **Completada** — commit [`c410587`](../../commit/c410587) *(Rediseno Organic - Fase 0: tema visual y shell de navegacion)*. Detalle real en CLAUDE.md §14. |
 | **1** | Reskin de los 5 módulos existentes + Administración, en orden RF (Pacientes → Agenda → Historial → Inventario → Facturación/Reportes). Incluye 1b-1g, 1i, 1j-1m (sin vitals/próxima dosis todavía), 1n-1o (sin lotes todavía), 1q-1t. | ✅ **Completada**, en 5 commits: [`8e5d56d`](../../commit/8e5d56d) Fase 1a Pacientes, [`6ed3c6c`](../../commit/6ed3c6c) Fase 1b Agenda, [`4e56890`](../../commit/4e56890) Fase 1c Historial, [`713d5ac`](../../commit/713d5ac) Fase 1d Inventario, [`064aa44`](../../commit/064aa44) Fase 1e Facturación/Reportes. Detalle real y desviaciones documentadas en CLAUDE.md §14. |
 | **2** | Migraciones 1-3 (vitals, próxima dosis, lotes/vencimiento) + UI en los diálogos existentes de Historial e Inventario. | ✅ **Completada** — detalle real y una desviación deliberada (`v_historial_clinico` sí se tocó) en CLAUDE.md §14. |
-| **3** | Migración 4 (lista de espera) + UI dentro de Agenda (1h, wiring en 1i). | ⬜ Pendiente — siguiente fase a ejecutar. |
-| **4** | Migración 5 (Compras y Proveedores) + módulo `modules/compras/` completo. | ⬜ Pendiente. |
+| **3** | Migración 4 (lista de espera) + UI dentro de Agenda (1h, wiring en 1i). | ✅ **Completada** — detalle real en CLAUDE.md §14. |
+| **4** | Migración 5 (Compras y Proveedores) + módulo `modules/compras/` completo. | ⬜ Pendiente — siguiente fase a ejecutar. |
 | **5** | Migración 6 (Portal) + Edge Function `portal-acceso` + `frontend/src/portal/*` completo + botón "Dar acceso al portal" en Pacientes. | ⬜ Pendiente. |
 | **6** | Dashboard real (1a): KPIs, agenda del día, accesos rápidos. | ⬜ Pendiente. |
 
@@ -310,9 +310,10 @@ facturas del propietario, `api.ts` identity-scoped). Modificar: `App.tsx` (rama
 
 ## Siguiente paso
 
-Con Fases 0, 1 y 2 completas y verificadas, la **Fase 3** arranca con:
-`npx supabase migration new lista_espera`, extender `types/dominio.ts`, y construir
-`ListaEsperaTab.tsx`/`NuevaListaEsperaDialog.tsx` dentro de Agenda (más el wiring de
-"liberar cupo a lista de espera" en `CitaDetalleDialog.tsx`). Se commitea y se verifica sola
-antes de seguir con la Fase 4 — mismo ritmo por fases con revisión entre cada una, por pedido
-explícito del cliente.
+Con Fases 0, 1, 2 y 3 completas y verificadas, la **Fase 4** arranca con:
+`npx supabase migration new compras_proveedores` (tablas `proveedor`, `orden_compra`,
+`detalle_orden_compra`, trigger `fn_recibir_orden_compra`), extender `types/dominio.ts`, y
+construir el módulo `modules/compras/` completo (`ComprasPage.tsx`, `ProveedoresTab.tsx`,
+`OrdenesCompraTab.tsx`, diálogos, `api.ts`), exclusivo de Administrador. Se commitea y se
+verifica sola antes de seguir con la Fase 5 — mismo ritmo por fases con revisión entre cada
+una, por pedido explícito del cliente.

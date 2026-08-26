@@ -18,7 +18,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import type { CitaConDetalle, EstadoCita, Usuario } from '../../types/dominio';
 import { SelectorHorarioCita } from './SelectorHorarioCita';
 import { useDisponibilidadCita } from './useDisponibilidadCita';
-import { cancelarCita, reprogramarCita } from './api';
+import { cancelarCita, listarCoincidenciasListaEspera, reprogramarCita, type ListaEsperaConPaciente } from './api';
 import { mensajeError } from '../../lib/errors';
 
 interface Props {
@@ -27,6 +27,10 @@ interface Props {
   puedeGestionar: boolean;
   onCerrar: () => void;
   onActualizado: () => void;
+  // Wiring RF-015 (1i): "agendar" una coincidencia de lista de espera con el cupo
+  // que se acaba de liberar. AgendaPage decide que hacer con eso (abrir
+  // NuevaCitaDialog prefijado); este dialogo no conoce ese flujo, solo lo ofrece.
+  onAgendarDesdeListaEspera?: (entrada: ListaEsperaConPaciente, citaCancelada: CitaConDetalle) => void;
 }
 
 const ETIQUETA_ESTADO: Record<EstadoCita, string> = {
@@ -43,13 +47,22 @@ const COLOR_ESTADO: Record<EstadoCita, 'primary' | 'secondary' | 'default'> = {
 
 // RF-013 (ver detalle), RF-014 (reprogramar) y RF-015 (cancelar). Solo recepcionista
 // gestiona (puedeGestionar); veterinario ve, sin ningun control de edicion.
-export function CitaDetalleDialog({ cita, veterinarios, puedeGestionar, onCerrar, onActualizado }: Props) {
+export function CitaDetalleDialog({
+  cita,
+  veterinarios,
+  puedeGestionar,
+  onCerrar,
+  onActualizado,
+  onAgendarDesdeListaEspera,
+}: Props) {
   const [reprogramando, setReprogramando] = useState(false);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
 
   const [fecha, setFecha] = useState<Dayjs | null>(null);
   const [hora, setHora] = useState<Dayjs | null>(null);
   const [duracionMinutos, setDuracionMinutos] = useState(30);
+
+  const [coincidencias, setCoincidencias] = useState<ListaEsperaConPaciente[]>([]);
 
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -62,7 +75,25 @@ export function CitaDetalleDialog({ cita, veterinarios, puedeGestionar, onCerrar
     setReprogramando(false);
     setConfirmandoCancelar(false);
     setErrorGeneral(null);
+    setCoincidencias([]);
   }, [cita]);
+
+  // RF-015 (1i): "liberar cupo a lista de espera" -- en cuanto la cita queda
+  // cancelada (aca mismo o ya lo estaba al abrir el detalle), se buscan las
+  // entradas pendientes que podrian tomar ese horario.
+  useEffect(() => {
+    if (!cita || cita.estado !== 'cancelada' || !puedeGestionar) {
+      setCoincidencias([]);
+      return;
+    }
+    let vigente = true;
+    listarCoincidenciasListaEspera(cita.id_veterinario)
+      .then((resultado) => vigente && setCoincidencias(resultado))
+      .catch(() => vigente && setCoincidencias([]));
+    return () => {
+      vigente = false;
+    };
+  }, [cita, puedeGestionar]);
 
   // Solo se verifica disponibilidad en vivo mientras se esta reprogramando -- evita
   // un fetch de fondo cada vez que se abre el detalle solo para consultar, y fuerza
@@ -220,6 +251,38 @@ export function CitaDetalleDialog({ cita, veterinarios, puedeGestionar, onCerrar
                 </Stack>
               </Stack>
             </Alert>
+          )}
+
+          {coincidencias.length > 0 && (
+            <>
+              <Divider />
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Coincidencias en lista de espera
+                </Typography>
+                <Stack spacing={1}>
+                  {coincidencias.map((entrada) => (
+                    <Stack
+                      key={entrada.id_lista_espera}
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                      <Box>
+                        <Typography variant="body2">{entrada.paciente.nombre}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {entrada.paciente.propietario.nombres} {entrada.paciente.propietario.apellidos} —{' '}
+                          {entrada.motivo}
+                        </Typography>
+                      </Box>
+                      <Button size="small" onClick={() => onAgendarDesdeListaEspera?.(entrada, cita)}>
+                        Agendar con este cupo
+                      </Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Box>
+            </>
           )}
         </Stack>
       </DialogContent>

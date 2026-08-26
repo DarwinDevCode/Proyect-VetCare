@@ -1,6 +1,6 @@
 import dayjs, { type Dayjs } from 'dayjs';
 import { supabase } from '../../lib/supabaseClient';
-import type { Cita, CitaConDetalle, PacienteParaCita, Rol, Usuario } from '../../types/dominio';
+import type { Cita, CitaConDetalle, ListaEspera, PacienteParaCita, Rol, Usuario } from '../../types/dominio';
 
 const SELECCION_PACIENTE_CITA =
   'id_paciente, nombre, sexo, propietario:id_propietario(nombres, apellidos, telefono)';
@@ -151,4 +151,78 @@ export async function cancelarCita(id: number): Promise<Cita> {
     .single();
   if (error) throw error;
   return data;
+}
+
+// ----------------------------------------------------------------------------
+// RF-034/RF-035 (Fase 2): lista de espera. Mismo patron de acceso que el resto de
+// Agenda -- Recepcionista gestiona, Veterinario solo consulta (RLS en
+// lista_espera.sql).
+// ----------------------------------------------------------------------------
+
+export interface ListaEsperaConPaciente extends ListaEspera {
+  paciente: PacienteParaCita;
+  veterinario: Pick<Usuario, 'id_usuario' | 'nombres' | 'apellidos'> | null;
+}
+
+const SELECCION_LISTA_ESPERA = `*, paciente:id_paciente(${SELECCION_PACIENTE_CITA}), veterinario:id_veterinario(id_usuario, nombres, apellidos)`;
+
+// RF-034: listado completo, mas antigua primero (orden de llegada -- FIFO, la
+// misma logica implicita que ya usa "sugerencias" de disponibilidad).
+export async function listarListaEspera(): Promise<ListaEsperaConPaciente[]> {
+  const { data, error } = await supabase
+    .from('lista_espera')
+    .select(SELECCION_LISTA_ESPERA)
+    .order('fecha_registro');
+  if (error) throw error;
+  return data as unknown as ListaEsperaConPaciente[];
+}
+
+export async function crearListaEspera(
+  datos: Pick<ListaEspera, 'id_paciente' | 'motivo'> &
+    Partial<Pick<ListaEspera, 'id_veterinario' | 'fecha_preferida' | 'franja_preferida'>>,
+): Promise<ListaEspera> {
+  const { data, error } = await supabase.from('lista_espera').insert(datos).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function cancelarListaEspera(id: number): Promise<ListaEspera> {
+  const { data, error } = await supabase
+    .from('lista_espera')
+    .update({ estado: 'cancelada' })
+    .eq('id_lista_espera', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// RF-015 wiring (1i): al cancelar una cita, se marca la entrada de lista de espera
+// que se agendo con ese cupo -- distinto de "cancelada" (el propietario ya no
+// espera nada), significa que se le dio el lugar liberado.
+export async function marcarAtendidaListaEspera(id: number): Promise<ListaEspera> {
+  const { data, error } = await supabase
+    .from('lista_espera')
+    .update({ estado: 'atendida' })
+    .eq('id_lista_espera', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// RF-015 wiring (1i): coincidencias para el cupo que se acaba de liberar al
+// cancelar una cita. "id_veterinario is null" significa "cualquier veterinario",
+// asi que tambien coincide. No se filtra por fecha_preferida aqui -- es una
+// preferencia, no un requisito estricto, y limitar de mas dejaria coincidencias
+// reales sin mostrar (ej. alguien que pidio "lo antes posible", sin fecha).
+export async function listarCoincidenciasListaEspera(idVeterinario: string): Promise<ListaEsperaConPaciente[]> {
+  const { data, error } = await supabase
+    .from('lista_espera')
+    .select(SELECCION_LISTA_ESPERA)
+    .eq('estado', 'pendiente')
+    .or(`id_veterinario.eq.${idVeterinario},id_veterinario.is.null`)
+    .order('fecha_registro');
+  if (error) throw error;
+  return data as unknown as ListaEsperaConPaciente[];
 }
