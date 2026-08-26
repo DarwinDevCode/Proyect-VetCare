@@ -120,6 +120,8 @@ declare
 
   v_f1 bigint; v_f2 bigint; v_f3 bigint; v_f4 bigint; v_f5 bigint; v_f6 bigint;
 
+  v_oc_id bigint;
+
   v_id_canino  smallint := (select id_especie from public.especie where nombre = 'Canino');
   v_id_felino  smallint := (select id_especie from public.especie where nombre = 'Felino');
   v_id_ave     smallint := (select id_especie from public.especie where nombre = 'Ave');
@@ -201,34 +203,40 @@ begin
   -- (existencia_actual la mantiene siempre fn_actualizar_existencia, nunca un
   -- valor de formulario) -- se establece abajo con movimientos de ingreso.
   -- --------------------------------------------------------------------------
-  insert into public.producto (codigo, nombre, tipo, presentacion, unidad_medida, nivel_minimo, precio_unitario) values
-    ('MED-001', 'Amoxicilina 500mg', 'medicamento', 'Caja x20 tabletas', 'caja', 10, 8.50),
-    ('MED-002', 'Meloxicam 1.5mg/ml', 'medicamento', 'Frasco 100ml', 'frasco', 5, 12.00),
-    ('MED-003', 'Ivermectina 1%', 'medicamento', 'Frasco 50ml', 'frasco', 5, 15.75),
-    ('MED-004', 'Dexametasona 4mg/ml', 'medicamento', 'Ampolla 1ml', 'ampolla', 15, 3.20),
-    ('MED-005', 'Suero Ringer Lactato', 'medicamento', 'Bolsa 500ml', 'bolsa', 10, 4.50),
-    ('INS-001', 'Jeringa 5ml', 'insumo', null, 'unidad', 50, 0.35),
-    ('INS-002', 'Guantes de nitrilo', 'insumo', 'Caja x100', 'par', 100, 0.25),
-    ('INS-003', 'Gasa estéril', 'insumo', 'Paquete x10', 'paquete', 20, 1.10),
-    ('INS-004', 'Catéter IV 22G', 'insumo', null, 'unidad', 15, 1.80),
-    ('VAC-001', 'Vacuna Óctuple canina', 'vacuna', null, 'dosis', 8, 18.00),
-    ('VAC-002', 'Vacuna Antirrábica', 'vacuna', null, 'dosis', 10, 10.00),
-    ('VAC-003', 'Vacuna Triple felina', 'vacuna', null, 'dosis', 6, 16.50);
+  -- intervalo_dias (Fase 2, RF-041): solo las vacunas tienen un esquema de refuerzo
+  -- conocido -- las demas quedan en null a proposito (v_vacunas_proximas las omite).
+  insert into public.producto (codigo, nombre, tipo, presentacion, unidad_medida, nivel_minimo, precio_unitario, intervalo_dias) values
+    ('MED-001', 'Amoxicilina 500mg', 'medicamento', 'Caja x20 tabletas', 'caja', 10, 8.50, null),
+    ('MED-002', 'Meloxicam 1.5mg/ml', 'medicamento', 'Frasco 100ml', 'frasco', 5, 12.00, null),
+    ('MED-003', 'Ivermectina 1%', 'medicamento', 'Frasco 50ml', 'frasco', 5, 15.75, null),
+    ('MED-004', 'Dexametasona 4mg/ml', 'medicamento', 'Ampolla 1ml', 'ampolla', 15, 3.20, null),
+    ('MED-005', 'Suero Ringer Lactato', 'medicamento', 'Bolsa 500ml', 'bolsa', 10, 4.50, null),
+    ('INS-001', 'Jeringa 5ml', 'insumo', null, 'unidad', 50, 0.35, null),
+    ('INS-002', 'Guantes de nitrilo', 'insumo', 'Caja x100', 'par', 100, 0.25, null),
+    ('INS-003', 'Gasa estéril', 'insumo', 'Paquete x10', 'paquete', 20, 1.10, null),
+    ('INS-004', 'Catéter IV 22G', 'insumo', null, 'unidad', 15, 1.80, null),
+    ('VAC-001', 'Vacuna Óctuple canina', 'vacuna', null, 'dosis', 8, 18.00, 365),
+    ('VAC-002', 'Vacuna Antirrábica', 'vacuna', null, 'dosis', 10, 10.00, 365),
+    ('VAC-003', 'Vacuna Triple felina', 'vacuna', null, 'dosis', 6, 16.50, 365);
 
   -- Existencia inicial: movimientos de ingreso (RF-022), 25 dias antes de hoy.
-  insert into public.movimiento_inventario (id_producto, tipo_movimiento, cantidad, fecha_hora, id_usuario, observacion) values
-    ((select id_producto from public.producto where codigo = 'MED-001'), 'ingreso', 50,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'MED-002'), 'ingreso', 20,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'MED-003'), 'ingreso', 15,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'MED-004'), 'ingreso', 40,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'MED-005'), 'ingreso', 25,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'INS-001'), 'ingreso', 200, now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'INS-002'), 'ingreso', 300, now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'INS-003'), 'ingreso', 80,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'INS-004'), 'ingreso', 60,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'VAC-001'), 'ingreso', 30,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'VAC-002'), 'ingreso', 40,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor'),
-    ((select id_producto from public.producto where codigo = 'VAC-003'), 'ingreso', 8,   now() - interval '25 days', v_admin, 'Compra inicial a proveedor -- lote reducido a proposito');
+  -- Lote/vencimiento (Fase 2, version ligera de lotes -- CLAUDE.md seccion 14) solo se
+  -- registra en medicamentos y vacunas, igual que en la practica real de una clinica;
+  -- el lote de Vacuna Triple felina vence pronto a proposito, para dejar activa la
+  -- alerta de v_lotes_por_vencer/RF-026 desde el primer arranque.
+  insert into public.movimiento_inventario (id_producto, tipo_movimiento, cantidad, fecha_hora, id_usuario, observacion, lote_codigo, fecha_vencimiento) values
+    ((select id_producto from public.producto where codigo = 'MED-001'), 'ingreso', 50,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'AMX-2026-08', '2027-08-01'),
+    ((select id_producto from public.producto where codigo = 'MED-002'), 'ingreso', 20,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'MLX-2026-08', '2027-06-15'),
+    ((select id_producto from public.producto where codigo = 'MED-003'), 'ingreso', 15,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'IVM-2026-08', '2027-03-01'),
+    ((select id_producto from public.producto where codigo = 'MED-004'), 'ingreso', 40,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'DXM-2026-08', '2027-01-20'),
+    ((select id_producto from public.producto where codigo = 'MED-005'), 'ingreso', 25,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'RNG-2026-08', '2028-01-01'),
+    ((select id_producto from public.producto where codigo = 'INS-001'), 'ingreso', 200, now() - interval '25 days', v_admin, 'Compra inicial a proveedor', null, null),
+    ((select id_producto from public.producto where codigo = 'INS-002'), 'ingreso', 300, now() - interval '25 days', v_admin, 'Compra inicial a proveedor', null, null),
+    ((select id_producto from public.producto where codigo = 'INS-003'), 'ingreso', 80,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', null, null),
+    ((select id_producto from public.producto where codigo = 'INS-004'), 'ingreso', 60,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', null, null),
+    ((select id_producto from public.producto where codigo = 'VAC-001'), 'ingreso', 30,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'OC-2026-11', '2027-05-01'),
+    ((select id_producto from public.producto where codigo = 'VAC-002'), 'ingreso', 40,  now() - interval '25 days', v_admin, 'Compra inicial a proveedor', 'AR-2026-07', '2027-02-01'),
+    ((select id_producto from public.producto where codigo = 'VAC-003'), 'ingreso', 8,   now() - interval '25 days', v_admin, 'Compra inicial a proveedor -- lote reducido a proposito', 'TF-2026-04', current_date + interval '15 days');
 
   -- Ajustes (RF-022: incrementos y disminuciones para mermas/correcciones).
   insert into public.movimiento_inventario (id_producto, tipo_movimiento, cantidad, fecha_hora, id_usuario, observacion) values
@@ -270,15 +278,17 @@ begin
   -- 4.5 Historial clinico (Modulo 3). Cinco consultas vinculadas a su cita
   -- (RF-017) y dos sin cita previa, por atencion no programada.
   -- --------------------------------------------------------------------------
-  insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg)
+  -- Signos vitales (Fase 2, RF-040) solo en estas dos: opcionales, no todo el
+  -- historial los trae -- demuestra tanto el caso con datos como el caso vacio.
+  insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg, temperatura_c, frecuencia_cardiaca_lpm, frecuencia_respiratoria_rpm)
     values (v_m1, v_veterinario, v_c1, '2026-08-10 09:00:00-05', 'Control anual y vacunación',
       'Buen estado general, mucosas rosadas, buena hidratación.', 'Paciente sano, apto para vacunación anual.',
-      'Se aplica vacuna óctuple de refuerzo.', 28.5)
+      'Se aplica vacuna óctuple de refuerzo.', 28.5, 38.4, 90, 22)
     returning id_consulta into v_q1;
-  insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg)
+  insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg, temperatura_c, frecuencia_cardiaca_lpm, frecuencia_respiratoria_rpm)
     values (v_m4, v_veterinario, v_c2, '2026-08-12 10:00:00-05', 'Decaimiento y falta de apetito de 3 días de evolución',
       'Deshidratación leve, temperatura 39.8°C, abdomen sensible a la palpación.', 'Gastroenteritis aguda.',
-      'Fluidoterapia con Ringer Lactato y Meloxicam 0.1mg/kg SC.', 3.8)
+      'Fluidoterapia con Ringer Lactato y Meloxicam 0.1mg/kg SC.', 3.8, 39.8, 130, 36)
     returning id_consulta into v_q2;
   insert into public.consulta (id_paciente, id_veterinario, id_cita, fecha_hora, motivo, hallazgos, diagnostico, tratamiento, peso_kg)
     values (v_m3, v_veterinario, v_c3, '2026-08-15 11:00:00-05', 'Cojera en pata trasera derecha de 5 días',
@@ -406,4 +416,68 @@ begin
   update public.factura set impuesto = round(subtotal * 0.15, 2) where id_factura = v_f6;
   insert into public.pago (id_factura, fecha_pago, monto, forma_pago, id_usuario)
     values (v_f6, '2026-08-23 10:05:00-05', (select total from public.factura where id_factura = v_f6), 'efectivo', v_recepcion);
+
+  -- --------------------------------------------------------------------------
+  -- 4.7 Lista de espera (Modulo 2, Fase 3, RF-034/RF-035). Tres pendientes (una
+  -- con veterinario especifico, una "cualquiera") y una ya atendida, para
+  -- mostrar los tres estados desde el primer arranque.
+  -- --------------------------------------------------------------------------
+  insert into public.lista_espera (id_paciente, id_veterinario, fecha_preferida, franja_preferida, motivo, estado, id_usuario_registro) values
+    (v_m5,  v_veterinario, '2026-08-30', 'manana', 'Seguimiento de revisión dermatológica, prefiere la mañana', 'pendiente', v_recepcion),
+    (v_m10, null,          null,          null,     'Dueño pide la primera cita disponible con cualquier veterinario', 'pendiente', v_recepcion),
+    (v_m6,  v_veterinario, '2026-09-02', 'tarde',  'Control de peso, solo puede en la tarde', 'pendiente', v_recepcion),
+    (v_m2,  v_veterinario, '2026-08-15', null,     'Ya se le asignó cupo y fue atendida', 'atendida', v_recepcion);
+
+  -- --------------------------------------------------------------------------
+  -- 4.8 Compras y Proveedores (Modulo 7, Fase 4, RF-036 a RF-039). Tres
+  -- proveedores y tres ordenes en cada estado del ciclo de vida: borrador
+  -- (sin emitir todavia), emitida (esperando al proveedor) y recibida (ya
+  -- disparo RN-022 -- ingreso automatico de inventario via trigger).
+  -- --------------------------------------------------------------------------
+  insert into public.proveedor (nombre, identificacion, telefono, correo, direccion) values
+    ('Distribuidora Veterinaria Andina S.A.', '1790012345001', '022456789', 'ventas@dva.com.ec', 'Av. Eloy Alfaro N45-12, Quito'),
+    ('FarmaVet Ecuador Cía. Ltda.', '1791234567001', '023456780', 'pedidos@farmavet.ec', 'Parque Industrial, Bodega 14, Quito'),
+    ('Insumos Médicos del Norte', '1792345678001', '0987112233', null, 'Av. Galo Plaza Lasso, Quito');
+
+  -- OC1: borrador, todavia editable, nunca emitida.
+  insert into public.orden_compra (id_proveedor, estado, observacion, id_usuario_registro)
+    values ((select id_proveedor from public.proveedor where nombre = 'Insumos Médicos del Norte'), 'borrador', 'Reposición de insumos para el próximo mes', v_admin)
+    returning id_orden_compra into v_oc_id; -- variable escalar, se reutiliza para las 3 ordenes de este bloque
+  insert into public.detalle_orden_compra (id_orden_compra, numero_linea, id_producto, cantidad, precio_unitario) values
+    (v_oc_id, 1, (select id_producto from public.producto where codigo = 'INS-002'), 200, 0.24),
+    (v_oc_id, 2, (select id_producto from public.producto where codigo = 'INS-004'), 40,  1.75);
+
+  -- OC2: emitida, esperando que el proveedor entregue.
+  insert into public.orden_compra (id_proveedor, estado, observacion, id_usuario_registro)
+    values ((select id_proveedor from public.proveedor where nombre = 'FarmaVet Ecuador Cía. Ltda.'), 'emitida', 'Urgente: stock de Vacuna Triple felina por debajo del mínimo', v_admin)
+    returning id_orden_compra into v_oc_id;
+  insert into public.detalle_orden_compra (id_orden_compra, numero_linea, id_producto, cantidad, precio_unitario) values
+    (v_oc_id, 1, (select id_producto from public.producto where codigo = 'VAC-003'), 20, 16.00);
+
+  -- OC3: recibida -- se inserta en borrador y se actualiza a 'recibida' aparte,
+  -- exactamente como lo haria la app (OrdenCompraDetalleDialog.tsx), para que
+  -- el trigger trg_recibir_orden_compra dispare de verdad y suba
+  -- existencia_actual via fn_actualizar_existencia (RN-022 real, no simulada).
+  insert into public.orden_compra (id_proveedor, estado, observacion, id_usuario_registro)
+    values ((select id_proveedor from public.proveedor where nombre = 'Distribuidora Veterinaria Andina S.A.'), 'borrador', 'Reposición mensual de medicamentos de uso frecuente', v_admin)
+    returning id_orden_compra into v_oc_id;
+  insert into public.detalle_orden_compra (id_orden_compra, numero_linea, id_producto, cantidad, precio_unitario) values
+    (v_oc_id, 1, (select id_producto from public.producto where codigo = 'MED-001'), 30, 8.20),
+    (v_oc_id, 2, (select id_producto from public.producto where codigo = 'MED-003'), 10, 15.50);
+  update public.orden_compra set estado = 'emitida' where id_orden_compra = v_oc_id;
+  -- fn_recibir_orden_compra inserta el movimiento de ingreso sin pasar
+  -- id_usuario (columna con default auth.uid(), igual que en la app real) --
+  -- sin una sesion autenticada, auth.uid() daria null y violaria el NOT NULL.
+  -- set_config(..., true) simula el JWT de quien recibe (Administrador), solo
+  -- para esta transaccion, igual que ya hacen las pruebas pgTAP.
+  perform set_config('request.jwt.claim.sub', v_admin::text, true);
+  update public.orden_compra set estado = 'recibida' where id_orden_compra = v_oc_id;
+
+  -- --------------------------------------------------------------------------
+  -- 4.9 Solicitud de cita desde el Portal (Modulo 8, Fase 5, RF-043/RN-021).
+  -- Sin id_veterinario ni id_usuario_registro -- asi la crea el propietario
+  -- desde /portal/citas, pendiente de que Recepcion la confirme.
+  -- --------------------------------------------------------------------------
+  insert into public.cita (id_paciente, id_veterinario, fecha_hora_inicio, duracion_minutos, motivo, estado, id_usuario_registro)
+    values (v_m2, null, '2026-08-30 10:00:00-05', 30, 'Misha no ha querido comer en dos días', 'solicitada', null);
 end $$;

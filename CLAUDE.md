@@ -1938,6 +1938,58 @@ Verificado: `npm run test` (frontend) 47/47 en verde, `npm run build` limpio; `d
 verde, sin residuos de los fixtures nuevos (`propietario`/`parametro_sistema`/`especie` de
 prueba, confirmados en 0 filas después de correr la suite).
 
+### Reset local + datos demo para todas las entidades (2026-08-26)
+
+Pedido explícito del cliente: `supabase db reset` (recrea la base local desde cero y reaplica
+migraciones + `seed.sql`) manteniendo exactamente los 3 `usuario` de siempre
+(recepcionista/veterinario/administrador), pero ahora con `seed.sql` ampliado para que
+**todas** las entidades del esquema tengan datos de demostración desde el primer arranque —
+antes, varias tablas agregadas en fases posteriores del rediseño Organic (lista de espera,
+compras y proveedores, lotes/vencimiento, signos vitales, intervalo de vacuna) quedaban vacías
+salvo que alguien las poblara a mano probando la UI, y esos datos ad-hoc no sobrevivían a un
+reset. Se amplió la sección 4 de `seed.sql`:
+
+- **Lotes y vencimiento** (Fase 2): las columnas `lote_codigo`/`fecha_vencimiento` de
+  `movimiento_inventario`, antes sin usar en el seed, ahora se completan en los ingresos de
+  medicamentos y vacunas; el lote de Vacuna Triple felina vence a los 15 días de "hoy" a
+  propósito, para dejar `v_lotes_por_vencer`/RF-026 con una alerta activa desde el arranque.
+- **`producto.intervalo_dias`** (Fase 2): 365 días para las tres vacunas del catálogo.
+- **Signos vitales** (Fase 2): dos consultas (Toby y Luna) ahora traen
+  `temperatura_c`/`frecuencia_cardiaca_lpm`/`frecuencia_respiratoria_rpm` — el resto se deja
+  sin ellos a propósito, son opcionales (RF-040).
+- **Lista de espera** (Fase 3, sección 4.7 nueva): tres entradas `pendiente` (una con
+  veterinario específico, una "cualquiera", una con franja) y una `atendida`.
+- **Compras y Proveedores** (Fase 4, sección 4.8 nueva, Módulo 7 completo sin datos hasta
+  ahora): tres proveedores y una orden de compra en cada estado del ciclo de vida —
+  `borrador`, `emitida` y `recibida`. La `recibida` se inserta en `borrador` y se actualiza
+  aparte (igual que lo haría `OrdenCompraDetalleDialog.tsx`), para que
+  `trg_recibir_orden_compra` dispare de verdad y suba `existencia_actual` vía
+  `fn_actualizar_existencia` — no una simulación con valores ya calculados a mano.
+  **Detalle real encontrado al escribirlo**: `fn_recibir_orden_compra` inserta el movimiento
+  de ingreso sin pasar `id_usuario` (columna con `default auth.uid()`, igual que en la app
+  real); sin una sesión autenticada, `auth.uid()` da `null` y viola el `NOT NULL`. Se resolvió
+  con `perform set_config('request.jwt.claim.sub', v_admin::text, true)` justo antes del
+  `UPDATE` que dispara el trigger — simula el JWT de quien recibiría la orden en la app real
+  (Administrador), solo para esa transacción, mismo mecanismo que ya usan las pruebas pgTAP.
+  No es un bug de la aplicación: en la app real siempre hay una sesión con JWT; es una
+  particularidad de sembrar datos como superusuario sin uno.
+- **Solicitud de cita del portal** (Fase 5, sección 4.9 nueva): una cita `'solicitada'` (sin
+  veterinario ni `id_usuario_registro`, igual que la crea el propietario desde
+  `/portal/citas`), para que el banner de "solicitudes pendientes" de Recepción tenga algo que
+  mostrar desde el arranque.
+
+**Verificado** tras `npx supabase db reset`: conteo de filas en las 18 tablas relevantes,
+todas con datos; `usuario` en exactamente 3; las 3 órdenes de compra en sus tres estados;
+`v_lotes_por_vencer` con la Vacuna Triple felina; `existencia_actual` de Amoxicilina/
+Ivermectina reflejando la recepción de la orden 3 (79/30, coincide con ingreso inicial + ajuste
+- consumo + lo recibido); el movimiento generado por el trigger con `id_usuario` = el
+Administrador simulado, no `null`; la cita `solicitada` visible. En navegador: dashboard de
+Administrador con los 5 KPIs no en cero, `/compras` mostrando las 3 órdenes en sus estados
+correctos, banner de "1 solicitud de cita desde el portal" en `/agenda`, y la pestaña "Lista de
+espera" con las 3 entradas pendientes. `npx supabase test db --local` (22/22) y
+`deno test` (10/10) siguen en verde tras el reset, confirmando que ninguna prueba dependía de
+un estado de la base distinto al que deja el seed ampliado.
+
 ## 15. Guía de despliegue (Supabase alojado + Vercel)
 
 Hasta ahora todo el desarrollo fue local (Docker, sección 8). Esta sección documenta el
