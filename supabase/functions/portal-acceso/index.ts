@@ -5,11 +5,35 @@
 // datos, RI-007), asi que no puede resolverse con un INSERT normal via PostgREST.
 // Requiere la service_role key, que nunca debe llegar al navegador -- por eso vive
 // aqui y no en el cliente. Verifica ella misma que quien llama es un Recepcionista
-// activo (RF-042: el acceso lo emite Recepcion desde la ficha del propietario, no
-// un autoregistro publico), igual que admin-usuarios verifica su propio rol pese a
-// usar la service_role key.
+// activo, igual que admin-usuarios verifica su propio rol pese a usar la
+// service_role key.
+//
+// Tres acciones (mismo patron de 'accion' que admin-usuarios), ver CLAUDE.md
+// seccion 14 (ampliacion posterior a la Fase 5) para el detalle completo:
+//   - 'manual' (default, RF-042 original): Recepcion escribe correo+password a
+//     mano desde AccesoPortalDialog.tsx. Sin cambios de comportamiento.
+//   - 'automatico': se dispara sola al registrar un paciente (NuevoPacienteDialog.tsx).
+//     Sin correo/password del caller -- toma el correo de la ficha del propietario y
+//     genera una contraseña temporal al azar. Idempotente: si ya tiene cuenta o no
+//     tiene correo, responde 200 con 'omitido', nunca error (no debe bloquear el
+//     alta del paciente).
+//   - 'restablecer': genera una contraseña nueva y la reenvia por correo. Es el
+//     mecanismo de recuperacion para cuando el envio automatico fallo la primera
+//     vez (o el propietario perdio el acceso) -- admin-usuarios no sirve para esto,
+//     opera sobre public.usuario (personal), no sobre propietario/cuentas de portal.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { enviarCredencialesPortal } from './smtp.ts';
+
+// Alfabeto sin caracteres ambiguos (0/O, 1/l/I) para que una contraseña leida
+// desde el correo por el propietario no genere errores de trascripcion.
+const ALFABETO_PASSWORD = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+
+function generarPasswordTemporal(longitud = 12): string {
+  const bytes = new Uint8Array(longitud);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => ALFABETO_PASSWORD[b % ALFABETO_PASSWORD.length]).join('');
+}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -62,52 +86,136 @@ Deno.serve(async (req) => {
     return json({ error: 'Cuerpo de la solicitud inválido.' }, 400);
   }
 
-  const { idPropietario, correo, password } = body as {
-    idPropietario?: number; correo?: string; password?: string;
-  };
-  if (!idPropietario || !correo || !password) {
-    return json({ error: 'Faltan datos obligatorios: propietario, correo y contraseña.' }, 400);
-  }
+  const accion = (body.accion as string | undefined) ?? 'manual';
+  const { idPropietario } = body as { idPropietario?: number };
+  if (!idPropietario) return json({ error: 'Falta el propietario.' }, 400);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
     const { data: propietario, error: errorPropietario } = await admin
       .from('propietario')
-      .select('id_propietario, id_usuario_portal')
+      .select('id_propietario, id_usuario_portal, correo, nombres, apellidos')
       .eq('id_propietario', idPropietario)
       .single();
 
     if (errorPropietario || !propietario) {
       return json({ error: 'El propietario indicado no existe.' }, 400);
     }
-    if (propietario.id_usuario_portal) {
-      return json({ error: 'Este propietario ya tiene una cuenta de portal activa.' }, 400);
+
+    const nombreCompleto = `${propietario.nombres} ${propietario.apellidos}`;
+
+    if (accion === 'manual') {
+      const { correo, password } = body as { correo?: string; password?: string };
+      if (!correo || !password) {
+        return json({ error: 'Faltan datos obligatorios: propietario, correo y contraseña.' }, 400);
+      }
+      if (propietario.id_usuario_portal) {
+        return json({ error: 'Este propietario ya tiene una cuenta de portal activa.' }, 400);
+      }
+      const resultado = await crearCuentaPortal(admin, idPropietario, correo, password);
+      if ('error' in resultado) return json({ error: resultado.error }, 400);
+      return json({ idUsuarioPortal: resultado.idUsuarioPortal });
     }
 
-    const { data: nuevo, error: errorCrear } = await admin.auth.admin.createUser({
-      email: correo,
-      password,
-      email_confirm: true,
-    });
-    if (errorCrear || !nuevo.user) {
-      return json({ error: errorCrear?.message ?? 'No se pudo crear la cuenta de acceso.' }, 400);
+    if (accion === 'automatico') {
+      // Idempotente y de mejor esfuerzo a proposito: se dispara sola al
+      // registrar cualquier paciente (NuevoPacienteDialog.tsx) y nunca debe
+      // bloquear ese alta -- 'omitido' no es un error, es 200.
+      if (propietario.id_usuario_portal) return json({ omitido: 'ya_existe' });
+      if (!propietario.correo) return json({ omitido: 'sin_correo' });
+
+      const password = generarPasswordTemporal();
+      const resultado = await crearCuentaPortal(admin, idPropietario, propietario.correo, password);
+      if ('error' in resultado) return json({ error: resultado.error }, 400);
+
+      let envioCorreoFallido = false;
+      try {
+        await enviarCredencialesPortal({
+          correo: propietario.correo,
+          nombrePropietario: nombreCompleto,
+          password,
+          esNuevaCuenta: true,
+        });
+      } catch {
+        // La cuenta NO se revierte por esto: revertir dejaria al propietario sin
+        // acceso pese a que la cuenta es perfectamente recuperable con 'restablecer'.
+        envioCorreoFallido = true;
+      }
+
+      return json({ idUsuarioPortal: resultado.idUsuarioPortal, ...(envioCorreoFallido && { envioCorreoFallido: true }) });
     }
 
-    const { error: errorVincular } = await admin
-      .from('propietario')
-      .update({ id_usuario_portal: nuevo.user.id })
-      .eq('id_propietario', idPropietario);
+    if (accion === 'restablecer') {
+      // Mecanismo de recuperacion: 'automatico' no revierte la cuenta si el
+      // correo falla, asi que esta es la unica forma de recuperar el acceso
+      // (admin-usuarios opera sobre public.usuario, no sirve para propietario).
+      if (!propietario.id_usuario_portal) {
+        return json(
+          { error: 'Este propietario todavía no tiene acceso al portal. Usa "Dar acceso al portal" primero.' },
+          400,
+        );
+      }
+      if (!propietario.correo) {
+        return json(
+          { error: 'El propietario no tiene correo registrado; actualiza su ficha antes de reenviar el acceso.' },
+          400,
+        );
+      }
 
-    if (errorVincular) {
-      // Sin el vinculo la cuenta de auth queda huerfana e inutilizable
-      // (fn_propietario_actual() no le resuelve ningun propietario); se revierte.
-      await admin.auth.admin.deleteUser(nuevo.user.id);
-      return json({ error: errorVincular.message }, 400);
+      const password = generarPasswordTemporal();
+      const { error: errorReset } = await admin.auth.admin.updateUserById(propietario.id_usuario_portal, { password });
+      if (errorReset) return json({ error: errorReset.message }, 400);
+
+      let envioCorreoFallido = false;
+      try {
+        await enviarCredencialesPortal({
+          correo: propietario.correo,
+          nombrePropietario: nombreCompleto,
+          password,
+          esNuevaCuenta: false,
+        });
+      } catch {
+        envioCorreoFallido = true;
+      }
+
+      return json({ ok: true, ...(envioCorreoFallido && { envioCorreoFallido: true }) });
     }
 
-    return json({ idUsuarioPortal: nuevo.user.id });
+    return json({ error: 'Acción no reconocida.' }, 400);
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Error inesperado.' }, 500);
   }
 });
+
+type ResultadoCrearCuenta = { idUsuarioPortal: string } | { error: string };
+
+async function crearCuentaPortal(
+  admin: ReturnType<typeof createClient>,
+  idPropietario: number,
+  correo: string,
+  password: string,
+): Promise<ResultadoCrearCuenta> {
+  const { data: nuevo, error: errorCrear } = await admin.auth.admin.createUser({
+    email: correo,
+    password,
+    email_confirm: true,
+  });
+  if (errorCrear || !nuevo.user) {
+    return { error: errorCrear?.message ?? 'No se pudo crear la cuenta de acceso.' };
+  }
+
+  const { error: errorVincular } = await admin
+    .from('propietario')
+    .update({ id_usuario_portal: nuevo.user.id })
+    .eq('id_propietario', idPropietario);
+
+  if (errorVincular) {
+    // Sin el vinculo la cuenta de auth queda huerfana e inutilizable
+    // (fn_propietario_actual() no le resuelve ningun propietario); se revierte.
+    await admin.auth.admin.deleteUser(nuevo.user.id);
+    return { error: errorVincular.message };
+  }
+
+  return { idUsuarioPortal: nuevo.user.id };
+}

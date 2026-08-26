@@ -6,3 +6,7 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Edge Function secrets (VETCARE_SMTP_*, etc.) -- supabase start los carga
+# automaticamente desde functions/.env; solo functions/.env.example se commitea.
+functions/.env

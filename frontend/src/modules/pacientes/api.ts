@@ -7,14 +7,8 @@ import type { Especie, Paciente, PacienteConFicha, Propietario, Raza } from '../
 // Mismo patron que invocarAdminUsuarios (modules/administracion/api.ts): la
 // funcion redacta su propio mensaje en espanol, se intenta leer del cuerpo del
 // error antes de caer en el generico.
-export async function emitirAccesoPortal(
-  idPropietario: number,
-  correo: string,
-  password: string,
-): Promise<{ idUsuarioPortal: string }> {
-  const { data, error } = await supabase.functions.invoke('portal-acceso', {
-    body: { idPropietario, correo, password },
-  });
+async function invocarPortalAcceso(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.functions.invoke('portal-acceso', { body });
   if (error) {
     const contexto = (error as { context?: Response }).context;
     if (contexto && typeof contexto.json === 'function') {
@@ -27,9 +21,38 @@ export async function emitirAccesoPortal(
     }
     throw new Error(error.message ?? 'No se pudo completar la operación.');
   }
-  const respuesta = data as { idUsuarioPortal: string; error?: string };
+  const respuesta = data as Record<string, unknown> & { error?: string };
   if (respuesta?.error) throw new Error(respuesta.error);
   return respuesta;
+}
+
+export async function emitirAccesoPortal(
+  idPropietario: number,
+  correo: string,
+  password: string,
+): Promise<{ idUsuarioPortal: string }> {
+  const respuesta = await invocarPortalAcceso({ idPropietario, correo, password, accion: 'manual' });
+  return respuesta as { idUsuarioPortal: string };
+}
+
+// Ampliación posterior a la Fase 5 (ver CLAUDE.md sección 14): se dispara sola al
+// registrar un paciente (NuevoPacienteDialog.tsx), no requiere que Recepción abra
+// un diálogo aparte. Idempotente y de mejor esfuerzo -- "omitido" no es un error.
+export async function asegurarAccesoPortalAutomatico(
+  idPropietario: number,
+): Promise<{ idUsuarioPortal?: string; omitido?: 'sin_correo' | 'ya_existe'; envioCorreoFallido?: boolean }> {
+  const respuesta = await invocarPortalAcceso({ idPropietario, accion: 'automatico' });
+  return respuesta as { idUsuarioPortal?: string; omitido?: 'sin_correo' | 'ya_existe'; envioCorreoFallido?: boolean };
+}
+
+// Recuperación: cuando el correo automático falló, o el propietario perdió/quiere
+// renovar su acceso. Genera una contraseña nueva y la reenvía -- no hay forma de
+// "ver" la anterior, nunca queda expuesta en el cliente.
+export async function reenviarAccesoPortal(
+  idPropietario: number,
+): Promise<{ ok: true; envioCorreoFallido?: boolean }> {
+  const respuesta = await invocarPortalAcceso({ idPropietario, accion: 'restablecer' });
+  return respuesta as { ok: true; envioCorreoFallido?: boolean };
 }
 
 export async function listarEspecies(): Promise<Especie[]> {

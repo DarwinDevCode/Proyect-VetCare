@@ -22,14 +22,14 @@ import dayjs, { type Dayjs } from 'dayjs';
 import type { Especie, Propietario, Sexo } from '../../types/dominio';
 import { PropietarioAutocomplete } from './PropietarioAutocomplete';
 import { EspecieRazaSelect } from './EspecieRazaSelect';
-import { buscarPropietarios, crearPaciente, crearPropietario } from './api';
+import { asegurarAccesoPortalAutomatico, buscarPropietarios, crearPaciente, crearPropietario } from './api';
 import { mensajeError } from '../../lib/errors';
 
 interface Props {
   abierto: boolean;
   especies: Especie[];
   onCerrar: () => void;
-  onCreado: () => void;
+  onCreado: (avisoPortal?: string) => void;
 }
 
 interface FormPropietarioNuevo {
@@ -204,7 +204,27 @@ export function NuevoPacienteDialog({ abierto, especies, onCerrar, onCreado }: P
         color: color.trim() || null,
       });
 
-      onCreado();
+      // Ampliación posterior a la Fase 5 (CLAUDE.md sección 14): asegura el
+      // acceso al portal del propietario en el mismo alta, sin que Recepción
+      // tenga que abrir "Dar acceso al portal" aparte. Try/catch propio, no el
+      // de arriba: el paciente ya quedó guardado, así que un problema acá nunca
+      // debe mostrarse como si el alta hubiera fallado -- a lo sumo, un aviso.
+      let avisoPortal: string | undefined;
+      try {
+        const resultado = await asegurarAccesoPortalAutomatico(idPropietario);
+        if (resultado.omitido === 'sin_correo') {
+          avisoPortal = 'Paciente registrado. No se creó acceso al portal: el propietario no tiene correo registrado.';
+        } else if (resultado.envioCorreoFallido) {
+          avisoPortal =
+            'Paciente registrado y cuenta de portal creada, pero no se pudo enviar el correo. Puedes reenviarlo desde la ficha del propietario.';
+        }
+        // omitido === 'ya_existe' o éxito completo: nada nuevo que avisar.
+      } catch {
+        avisoPortal =
+          'Paciente registrado. No se pudo verificar el acceso al portal automáticamente; puedes emitirlo desde la ficha del propietario.';
+      }
+
+      onCreado(avisoPortal);
       cerrar();
     } catch (error) {
       setErrorGeneral(mensajeError(error));
