@@ -7,14 +7,12 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
@@ -28,7 +26,6 @@ import { useAuth } from '../../auth/AuthContext';
 import { COLOR_ESTADO_COBRO, ETIQUETA_ESTADO_COBRO, formatoMoneda } from './formato';
 import { NuevaFacturaDialog } from './NuevaFacturaDialog';
 import { FacturaDetalleDialog } from './FacturaDetalleDialog';
-import { ReporteIngresos } from './ReporteIngresos';
 
 const ESTADOS: EstadoCobro[] = ['pendiente', 'parcial', 'pagada'];
 
@@ -39,17 +36,16 @@ const FILTROS_INICIALES: FiltrosFactura = {
   estadoCobro: '',
 };
 
-// RF-028 a RF-032. La matriz 3.8 reparte este modulo entre dos roles: Recepcion
-// emite y cobra (RF-028, RF-030), Administracion reporta (RF-032), y ambos
-// consultan (RF-031). Por eso la pestana de reporte y los botones de escritura son
-// condicionales -- pero la garantia real es del servidor: fn_emitir_factura
-// comprueba el rol y las politicas de `pago` solo admiten Recepcion.
+// RF-028, RF-029, RF-030, RF-031 (RF-032 -- el reporte -- vive en ReportesPage.tsx,
+// ruta propia desde esta fase: ver esa pagina para la razon). La matriz 3.8 le da
+// este modulo a Recepcion (emite y cobra) y a Administracion (solo consulta) --
+// por eso el boton de escritura es condicional, pero la garantia real es del
+// servidor: fn_emitir_factura comprueba el rol y las politicas de `pago` solo
+// admiten Recepcion.
 export function FacturacionPage() {
   const { sesion } = useAuth();
   const puedeFacturar = sesion?.rol.codigo === 'recepcionista';
-  const puedeReportar = sesion?.rol.codigo === 'administrador';
 
-  const [pestana, setPestana] = useState(0);
   const [filtros, setFiltros] = useState<FiltrosFactura>(FILTROS_INICIALES);
   const [facturas, setFacturas] = useState<FacturaListada[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -104,128 +100,111 @@ export function FacturacionPage() {
         )}
       </Stack>
 
-      {puedeReportar && (
-        <Tabs
-          value={pestana}
-          onChange={(_e, valor: number) => setPestana(valor)}
-          sx={{ mb: 3, displayPrint: 'none' }}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={2}
+        sx={{ mb: 2, displayPrint: 'none' }}
+      >
+        <TextField
+          label="Desde"
+          type="date"
+          value={filtros.desde ?? ''}
+          slotProps={{ inputLabel: { shrink: true } }}
+          onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value || null }))}
+        />
+        <TextField
+          label="Hasta"
+          type="date"
+          value={filtros.hasta ?? ''}
+          slotProps={{ inputLabel: { shrink: true } }}
+          onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value || null }))}
+        />
+        <TextField
+          label="Propietario"
+          placeholder="Nombre, apellido o cédula"
+          value={filtros.propietario}
+          sx={{ minWidth: 240 }}
+          onChange={(e) => setFiltros((f) => ({ ...f, propietario: e.target.value }))}
+        />
+        <TextField
+          select
+          label="Situación de cobro"
+          value={filtros.estadoCobro}
+          sx={{ minWidth: 190 }}
+          onChange={(e) =>
+            setFiltros((f) => ({ ...f, estadoCobro: e.target.value as EstadoCobro | '' }))
+          }
         >
-          <Tab label="Facturas emitidas" />
-          <Tab label="Reporte de ingresos" />
-        </Tabs>
+          <MenuItem value="">Todas</MenuItem>
+          {ESTADOS.map((estado) => (
+            <MenuItem key={estado} value={estado}>
+              {ETIQUETA_ESTADO_COBRO[estado]}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Stack>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
 
-      {puedeReportar && pestana === 1 ? (
-        <ReporteIngresos />
-      ) : (
-        <>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            sx={{ mb: 2, displayPrint: 'none' }}
-          >
-            <TextField
-              label="Desde"
-              type="date"
-              value={filtros.desde ?? ''}
-              slotProps={{ inputLabel: { shrink: true } }}
-              onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value || null }))}
-            />
-            <TextField
-              label="Hasta"
-              type="date"
-              value={filtros.hasta ?? ''}
-              slotProps={{ inputLabel: { shrink: true } }}
-              onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value || null }))}
-            />
-            <TextField
-              label="Propietario"
-              placeholder="Nombre, apellido o cédula"
-              value={filtros.propietario}
-              sx={{ minWidth: 240 }}
-              onChange={(e) => setFiltros((f) => ({ ...f, propietario: e.target.value }))}
-            />
-            <TextField
-              select
-              label="Situación de cobro"
-              value={filtros.estadoCobro}
-              sx={{ minWidth: 190 }}
-              onChange={(e) =>
-                setFiltros((f) => ({ ...f, estadoCobro: e.target.value as EstadoCobro | '' }))
-              }
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {ESTADOS.map((estado) => (
-                <MenuItem key={estado} value={estado}>
-                  {ETIQUETA_ESTADO_COBRO[estado]}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Número</TableCell>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Propietario</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell align="right">Saldo</TableCell>
-                  <TableCell>Situación</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {!cargando && facturas.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                      <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-                        <ReceiptLongIcon fontSize="large" />
-                        <Typography variant="body2">
-                          No hay facturas que coincidan con los filtros.
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {facturas.map((factura) => (
-                  <TableRow
-                    key={factura.id_factura}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => setFacturaSeleccionada(factura)}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {factura.numero}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{dayjs(factura.fecha_emision).format('DD/MM/YYYY HH:mm')}</TableCell>
-                    <TableCell>
-                      {factura.propietario.nombres} {factura.propietario.apellidos}
-                    </TableCell>
-                    <TableCell align="right">{formatoMoneda(factura.total)}</TableCell>
-                    <TableCell align="right">{formatoMoneda(factura.saldo_pendiente)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={ETIQUETA_ESTADO_COBRO[factura.estado_cobro]}
-                        color={COLOR_ESTADO_COBRO[factura.estado_cobro]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
-      )}
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Número</TableCell>
+              <TableCell>Fecha</TableCell>
+              <TableCell>Propietario</TableCell>
+              <TableCell align="right">Total</TableCell>
+              <TableCell align="right">Saldo</TableCell>
+              <TableCell>Situación</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {!cargando && facturas.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <Stack spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+                    <ReceiptLongIcon fontSize="large" />
+                    <Typography variant="body2">
+                      No hay facturas que coincidan con los filtros.
+                    </Typography>
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            )}
+            {facturas.map((factura) => (
+              <TableRow
+                key={factura.id_factura}
+                hover
+                sx={{ cursor: 'pointer' }}
+                onClick={() => setFacturaSeleccionada(factura)}
+              >
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {factura.numero}
+                  </Typography>
+                </TableCell>
+                <TableCell>{dayjs(factura.fecha_emision).format('DD/MM/YYYY HH:mm')}</TableCell>
+                <TableCell>
+                  {factura.propietario.nombres} {factura.propietario.apellidos}
+                </TableCell>
+                <TableCell align="right">{formatoMoneda(factura.total)}</TableCell>
+                <TableCell align="right">{formatoMoneda(factura.saldo_pendiente)}</TableCell>
+                <TableCell>
+                  <Chip
+                    size="small"
+                    label={ETIQUETA_ESTADO_COBRO[factura.estado_cobro]}
+                    color={COLOR_ESTADO_COBRO[factura.estado_cobro]}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <NuevaFacturaDialog
         abierto={dialogoNuevaAbierto}

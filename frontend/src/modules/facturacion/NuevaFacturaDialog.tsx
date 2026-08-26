@@ -188,7 +188,14 @@ export function NuevaFacturaDialog({ abierto, onCerrar, onEmitida }: Props) {
   const atencionSeleccionada = atenciones.find((a) => a.id_consulta === idConsulta) ?? null;
 
   return (
-    <Dialog open={abierto} onClose={onCerrar} maxWidth="md" fullWidth>
+    // El wireframe 1q muestra "Nueva factura" como flujo de pagina completa; se
+    // mantiene como dialogo, igual que todos los demas formularios de alta del
+    // proyecto (Pacientes, Agenda, Historial, Inventario, Administracion) --
+    // convertirlo en pagina habria sido la unica alta-como-pagina del proyecto sin
+    // que ningun contenido lo justifique (a diferencia del timeline de Historial,
+    // que si necesitaba su propio espacio). Se amplia a "lg" para que la tabla de
+    // conceptos tenga mas aire, que es lo que el wireframe realmente pedia.
+    <Dialog open={abierto} onClose={onCerrar} maxWidth="lg" fullWidth>
       <DialogTitle>Emitir factura</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>

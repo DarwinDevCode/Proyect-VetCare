@@ -903,3 +903,36 @@ se deja así a propósito.
 Verificado en navegador: "Bajo mínimo" aísla correctamente el único producto por debajo de su
 nivel; el filtro por tipo "Vacuna" muestra exactamente las 3 vacunas del catálogo; ambos
 filtros combinan de forma independiente. `npm run build` limpio.
+
+### Fase 1e — completada: Facturación y Reportes
+
+Último módulo de la Fase 1, el más grande. Dos piezas reales, no solo reskin:
+
+- **Reportes separado de Facturación como ruta propia** (1s): `ReportesPage.tsx` nuevo,
+  envoltorio delgado sobre `ReporteIngresos.tsx` (que ya tenía toda la lógica, sin tocar).
+  Antes vivía como una pestaña condicional dentro de `FacturacionPage.tsx`, visible solo para
+  Administrador; ahora es la ruta `/reportes`, exclusiva de Administrador (`App.tsx` +
+  `layout/modulos.ts`). `FacturacionPage.tsx` se simplificó a solo el listado de facturas —
+  perdió el estado `pestana` y la rama condicional que antes decidía qué renderizar.
+- **Pago mixto** (1r), en `RegistrarPagoDialog.tsx`: una factura se cobra con varias formas de
+  pago en una sola acción (ej. $7 efectivo + $4.50 tarjeta), no una forma por cobro como
+  antes. RN-015 ya admitía varios `pago` por factura — esto no es una regla nueva, es la UI
+  insertando varias filas a la vez. Nueva `registrarPagosMixtos()` en `api.ts`: un único
+  `insert` de PostgREST con un array (una sola sentencia SQL con varios `VALUES`), no N
+  llamadas secuenciales — si una línea fuera inválida, la operación entera se revierte, en vez
+  de dejar cobrado el efectivo pero no la tarjeta. Se quitaron "Yape/Plin" y "Crédito" del
+  wireframe: `forma_pago` sigue en efectivo/tarjeta/transferencia, sin cambio de esquema.
+  Verificado de extremo a extremo: cobro de $11,50 repartido en $7 efectivo + $4,50 tarjeta
+  (con referencia `AUTH-9988`) → dos filas en `pago` con los montos y la forma correctos →
+  factura pasó a `pagada` con saldo `$0,00`.
+- **`NuevaFacturaDialog.tsx` (1q) se mantiene como diálogo, no se convirtió en página** —
+  desviación deliberada del plan original, que preveía un flujo de página completa. Se
+  amplió a `maxWidth="lg"` para dar más aire a la tabla de conceptos, que es lo que el
+  wireframe realmente pedía; convertirlo en página habría sido la única alta-como-página del
+  proyecto sin que ningún contenido lo justificara (a diferencia del timeline de Historial,
+  que sí necesitaba su propio espacio) — habría roto la consistencia con el resto de
+  formularios de alta del proyecto (Pacientes, Agenda, Historial, Inventario,
+  Administración), todos diálogos.
+
+Con esto se cierra la Fase 1 completa (los cinco módulos existentes + Administración
+reskineados). `npm run build` limpio en todo el módulo.
