@@ -6,13 +6,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import type { FormaPago } from '../../types/dominio';
-import { registrarPago } from './api';
+import { registrarPagosMixtos } from './api';
 import { mensajeError } from '../../lib/errors';
 import { ETIQUETA_FORMA_PAGO, formatoMoneda } from './formato';
 
@@ -26,43 +25,63 @@ interface Props {
 
 const FORMAS: FormaPago[] = ['efectivo', 'tarjeta', 'transferencia'];
 
-// RF-030 / RN-015: una factura puede cobrarse en uno o varios pagos. No se toca la
-// factura al cobrar: su situacion de cobro y su saldo los deriva v_estado_factura
-// comparando el total con la suma de los pagos.
-export function RegistrarPagoDialog({ idFactura, saldoPendiente, abierto, onCerrar, onRegistrado }: Props) {
-  // Se propone el saldo completo, que es el caso habitual en el mostrador; el
-  // usuario puede reducirlo para un abono parcial.
-  const [monto, setMonto] = useState(String(saldoPendiente));
-  const [formaPago, setFormaPago] = useState<FormaPago>('efectivo');
-  const [referencia, setReferencia] = useState('');
+type Lineas = Record<FormaPago, { monto: string; referencia: string }>;
 
-  const [errores, setErrores] = useState<Record<string, string>>({});
+const LINEAS_VACIAS: Lineas = {
+  efectivo: { monto: '', referencia: '' },
+  tarjeta: { monto: '', referencia: '' },
+  transferencia: { monto: '', referencia: '' },
+};
+
+// RF-030 / RN-015: una factura puede cobrarse en uno o varios pagos, y (1r) en
+// varias formas de pago a la vez -- ej. parte efectivo, parte tarjeta, en una
+// sola accion de "Registrar cobro". No se toca la factura al cobrar: su
+// situacion de cobro y su saldo los deriva v_estado_factura comparando el total
+// con la suma de los pagos.
+export function RegistrarPagoDialog({ idFactura, saldoPendiente, abierto, onCerrar, onRegistrado }: Props) {
+  const [lineas, setLineas] = useState<Lineas>(LINEAS_VACIAS);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
+  const [errorMonto, setErrorMonto] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (!abierto) return;
-    setMonto(saldoPendiente > 0 ? saldoPendiente.toFixed(2) : '');
-    setFormaPago('efectivo');
-    setReferencia('');
-    setErrores({});
+    // Se propone el saldo completo en efectivo, el caso mas habitual en el
+    // mostrador; el usuario reparte entre formas si hace falta.
+    setLineas({
+      ...LINEAS_VACIAS,
+      efectivo: { monto: saldoPendiente > 0 ? saldoPendiente.toFixed(2) : '', referencia: '' },
+    });
     setErrorGeneral(null);
+    setErrorMonto(null);
   }, [abierto, saldoPendiente]);
 
+  function actualizarMonto(forma: FormaPago, monto: string) {
+    setLineas((actual) => ({ ...actual, [forma]: { ...actual[forma], monto } }));
+  }
+
+  function actualizarReferencia(forma: FormaPago, referencia: string) {
+    setLineas((actual) => ({ ...actual, [forma]: { ...actual[forma], referencia } }));
+  }
+
+  const totalAsignado = FORMAS.reduce((suma, forma) => suma + (Number(lineas[forma].monto) || 0), 0);
+  const saldoRestante = Math.round((saldoPendiente - totalAsignado) * 100) / 100;
+
   function validar(): boolean {
-    const nuevosErrores: Record<string, string> = {};
-    const montoNum = Number(monto);
-    if (monto.trim() === '' || Number.isNaN(montoNum) || montoNum <= 0) {
-      nuevosErrores.monto = 'Debe ser un número mayor a 0.';
-    } else if (montoNum > saldoPendiente) {
-      // El esquema no impide cobrar de mas (no hay ninguna restriccion que compare
-      // la suma de pagos con el total), pero cobrar por encima del saldo dejaria un
-      // saldo negativo sin forma de corregirlo: no hay anulaciones ni notas de
-      // credito, que el SRS excluye del alcance. Se bloquea aqui.
-      nuevosErrores.monto = `No puede superar el saldo pendiente (${formatoMoneda(saldoPendiente)}).`;
+    if (totalAsignado <= 0) {
+      setErrorMonto('Asigna un monto en al menos una forma de pago.');
+      return false;
     }
-    setErrores(nuevosErrores);
-    return Object.keys(nuevosErrores).length === 0;
+    // El esquema no impide cobrar de mas (no hay ninguna restriccion que compare
+    // la suma de pagos con el total), pero cobrar por encima del saldo dejaria un
+    // saldo negativo sin forma de corregirlo: no hay anulaciones ni notas de
+    // credito, que el SRS excluye del alcance. Se bloquea aqui.
+    if (saldoRestante < 0) {
+      setErrorMonto(`El total asignado no puede superar el saldo pendiente (${formatoMoneda(saldoPendiente)}).`);
+      return false;
+    }
+    setErrorMonto(null);
+    return true;
   }
 
   async function guardar() {
@@ -71,12 +90,13 @@ export function RegistrarPagoDialog({ idFactura, saldoPendiente, abierto, onCerr
 
     setGuardando(true);
     try {
-      await registrarPago({
+      const aCobrar = FORMAS.filter((forma) => Number(lineas[forma].monto) > 0).map((forma) => ({
         id_factura: idFactura,
-        monto: Number(monto),
-        forma_pago: formaPago,
-        referencia: referencia.trim() || null,
-      });
+        monto: Number(lineas[forma].monto),
+        forma_pago: forma,
+        referencia: lineas[forma].referencia.trim() || null,
+      }));
+      await registrarPagosMixtos(aCobrar);
       onRegistrado();
       onCerrar();
     } catch (error) {
@@ -97,41 +117,49 @@ export function RegistrarPagoDialog({ idFactura, saldoPendiente, abierto, onCerr
             Saldo pendiente: {formatoMoneda(saldoPendiente)}
           </Typography>
 
-          <TextField
-            label="Monto"
-            type="number"
-            required
-            fullWidth
-            value={monto}
-            error={!!errores.monto}
-            helperText={errores.monto}
-            slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
-            onChange={(e) => setMonto(e.target.value)}
-          />
-
-          <TextField
-            select
-            label="Forma de pago"
-            required
-            fullWidth
-            value={formaPago}
-            onChange={(e) => setFormaPago(e.target.value as FormaPago)}
-          >
+          <Stack spacing={1.5}>
             {FORMAS.map((forma) => (
-              <MenuItem key={forma} value={forma}>
-                {ETIQUETA_FORMA_PAGO[forma]}
-              </MenuItem>
+              <Stack key={forma} direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <TextField
+                  label={ETIQUETA_FORMA_PAGO[forma]}
+                  type="number"
+                  sx={{ width: { sm: 130 } }}
+                  value={lineas[forma].monto}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  onChange={(e) => actualizarMonto(forma, e.target.value)}
+                />
+                {forma !== 'efectivo' && (
+                  <TextField
+                    label="Referencia (opcional)"
+                    fullWidth
+                    value={lineas[forma].referencia}
+                    helperText={forma === 'tarjeta' ? 'Número de autorización' : 'Número de transferencia'}
+                    slotProps={{ htmlInput: { maxLength: 40 } }}
+                    onChange={(e) => actualizarReferencia(forma, e.target.value)}
+                  />
+                )}
+              </Stack>
             ))}
-          </TextField>
+          </Stack>
 
-          <TextField
-            label="Referencia (opcional)"
-            fullWidth
-            value={referencia}
-            helperText="Número de comprobante, autorización o transferencia."
-            slotProps={{ htmlInput: { maxLength: 40 } }}
-            onChange={(e) => setReferencia(e.target.value)}
-          />
+          {errorMonto && (
+            <Typography variant="caption" color="error">
+              {errorMonto}
+            </Typography>
+          )}
+
+          <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
+            <Typography variant="body2" color="text.secondary">
+              Asignado: {formatoMoneda(totalAsignado)}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 600 }}
+              color={saldoRestante < 0 ? 'error' : saldoRestante === 0 ? 'success.main' : 'text.primary'}
+            >
+              Saldo: {formatoMoneda(Math.max(saldoRestante, 0))}
+            </Typography>
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>

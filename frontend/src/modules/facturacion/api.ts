@@ -143,6 +143,21 @@ export async function registrarPago(
   return data;
 }
 
+// RF-030 (1r, "pago mixto"): una factura se cobra con varias formas de pago en una
+// sola accion (ej. parte efectivo, parte tarjeta). RN-015 ya admite varios `pago`
+// por factura -- esto no es una regla nueva, es solo la UI insertando varias filas
+// a la vez en vez de una por vez. El array se manda en un unico INSERT de
+// PostgREST (una sola sentencia SQL con varios VALUES), no N llamadas
+// secuenciales: si una linea fuera invalida, la operacion entera se revierte, en
+// vez de dejar cobrado el efectivo pero no la tarjeta.
+export async function registrarPagosMixtos(
+  lineas: Pick<Pago, 'id_factura' | 'monto' | 'forma_pago' | 'referencia'>[],
+): Promise<Pago[]> {
+  const { data, error } = await supabase.from('pago').insert(lineas).select();
+  if (error) throw error;
+  return data;
+}
+
 export interface PagoDeReporte extends Pago {
   factura: { numero: string; id_propietario: number };
 }

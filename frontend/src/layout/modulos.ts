@@ -4,6 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import type { RolCodigo } from '../types/dominio';
 
@@ -48,9 +49,16 @@ export const MODULOS: DefinicionModulo[] = [
   },
   {
     ruta: '/facturacion',
-    etiqueta: 'Facturación y Reportes',
+    etiqueta: 'Facturación',
     icono: ReceiptLongIcon,
     roles: ['recepcionista', 'administrador'],
+    implementado: true,
+  },
+  {
+    ruta: '/reportes',
+    etiqueta: 'Reportes',
+    icono: AssessmentIcon,
+    roles: ['administrador'],
     implementado: true,
   },
   {
