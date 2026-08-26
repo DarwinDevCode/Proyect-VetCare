@@ -441,9 +441,11 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
-- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fase 0
-  completada (ver sección 14); quedan las Fases 1 a 6. No commitear ni desplegar ninguna fase
-  sin haberla verificado por separado — es la condición bajo la que el usuario aprobó el plan.
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fases 0 y 1
+  completadas (ver sección 14 y [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md)); quedan
+  las Fases 2 a 6 (signos vitales/próxima dosis/lotes, lista de espera, Compras y Proveedores,
+  Portal del propietario, Dashboard). No commitear ni desplegar ninguna fase sin haberla
+  verificado por separado — es la condición bajo la que el usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -688,6 +690,13 @@ navegador con la cuenta `administrador`: las cinco pestañas cargan datos reales
 consola.
 
 ## 14. Rediseño visual «Organic» y ampliaciones de alcance (en curso, por fases)
+
+Plan de implementación completo (migraciones exactas, extensión de `theme.ts`, archivos por
+fase, verificación, estado de cada fase) en
+[`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md) — mismo patrón que la sección 1 con la
+ERS y el diseño de BD: ese archivo es la fuente de verdad del plan hacia adelante, esta
+sección es el registro de lo que realmente se implementó fase por fase (con decisiones
+tomadas durante la ejecución y desviaciones del plan original), no lo duplica.
 
 **Origen.** El cliente aportó un proyecto de Claude Design con 22 pantallas de escritorio
 que cubren los seis módulos existentes más un sistema visual nuevo ("Organic": paleta
