@@ -1873,6 +1873,71 @@ persiste tras este cambio, el siguiente paso es dejar la sesión abierta más de
 achicar `jwt_expiry` en `config.toml` solo para probar) y repetir el cambio de pestaña
 confirmando en la pestaña Network que sí se dispara un `POST /auth/v1/token?grant_type=refresh_token`.
 
+### Favicon y campana de notificaciones real, con leídas/no leídas (2026-08-26)
+
+Pedidos explícitos del cliente, sin relación entre sí más que llegar en la misma sesión.
+
+**Favicon** (`frontend/public/favicon.svg`): era el ícono genérico del scaffold de Vite,
+nunca reemplazado. Ahora es el mismo `PetsIcon` que ya usa la app en login/portal, sobre el
+color `ORGANIC.accent[600]` — mismo tratamiento que la banda de encabezado de los correos del
+portal. `index.html` agrega `?v=2` al `href` porque los navegadores cachean favicons de forma
+independiente del resto de los recursos; un cambio de archivo solo no bastaba para que se
+viera sin limpiar caché a mano.
+
+**Campana de notificaciones — dejó de ser decorativa.** Existía desde la Fase 0 solo como
+contador de stock bajo, sin lista ni acción real (ver Fase 6 más arriba). Ahora:
+
+- `frontend/src/layout/notificaciones.ts` (personal) y `frontend/src/portal/notificaciones.ts`
+  (portal) calculan, en cada apertura, la lista de alertas vigentes por rol —
+  agregación cliente-side sobre datos que el rol ya puede leer por RLS, mismo criterio que
+  `dashboard/api.ts` (Fase 6), sin tabla ni vista nueva:
+  - Administrador: stock bajo, lotes por vencer.
+  - Recepcionista: solicitudes de cita del portal, lista de espera pendiente.
+  - Veterinario: stock bajo, lista de espera pendiente.
+  - Portal (propietario): solicitud de cita enviada, cita ya confirmada, factura con saldo
+    pendiente — sobre `listarMisCitas`/`listarMisFacturas`, ya existentes.
+- `AppLayout.tsx`/`PortalLayout.tsx` reemplazaron el `onClick` que solo navegaba a `/inicio`
+  por un `Popover` real con la lista, cada ítem enlazado a su pantalla.
+
+**Leídas/no leídas.** Primer pedido explícito fue "sin diferenciar" (más simple); el usuario
+volvió después a pedir justo lo contrario — que se marque leída al navegar a su módulo. Se
+implementó con `frontend/src/lib/notificacionesLeidas.ts`: un `Set<string>` de ids leídos por
+usuario/propietario, persistido en `localStorage` (**no** en una tabla nueva — cada
+notificación sigue siendo un cálculo en vivo sobre datos existentes, no una fila propia, así
+que no hay un lugar natural del lado del servidor para guardar "leído" sin ampliar el esquema
+solo para esto). Se recorta a los ids vigentes en cada carga para no acumular ids de alertas
+ya resueltas indefinidamente. Un ítem no leído se ve con fondo `ORGANIC.accent[100]`, un punto
+de acento y texto en negrita; al hacer clic se marca leído, se guarda y navega. El badge de la
+campana cuenta solo las no leídas. Verificado en navegador (Administrador): notificación con
+fondo `#fff2eb` → clic → navega a `/inventario` → badge pasa a 0 → al reabrir el panel el
+ítem se ve con fondo transparente → persiste tras recargar la página.
+
+**Suite de pruebas — dos regresiones nuevas + un catálogo.** A pedido del cliente
+("pruebas funcionales, de regresión y revisiones técnicas"), se agregó
+`supabase/tests/README.md`: un índice de navegación de todo lo probado en el proyecto
+(funcional, regresión, revisiones técnicas), con qué está automatizado y qué sigue siendo
+solo manual — no reemplaza el detalle de CLAUDE.md, apunta a él. De paso se cerraron dos
+huecos reales de la suite automatizada:
+
+- `supabase/tests/rf031_propietario_facturado_administrador_test.sql`: regresión del bug de
+  RLS de `propietario` vs. RF-031 (sección 9) — Administrador ve un propietario con al menos
+  una factura, nunca el padrón completo; Recepcionista no pierde acceso.
+- `supabase/tests/fn_auditar_cambio_test.sql`: regresión del bug `record "new" has no field...`
+  (sección 9) — insertar en `parametro_sistema` no revienta el trigger compartido, y la
+  bitácora resuelve el `id_registro` correcto tanto ahí como en `especie`.
+- `frontend/src/lib/fechas.ts` (nuevo): se extrajo `soloFechaLocal` desde
+  `EventoHistorialItem.tsx` (antes una función inline) para poder probarla — el bug de huso
+  horario del timeline (sección 9) ya estaba corregido, pero no tenía ninguna prueba que
+  impidiera que alguien lo reintrodujera. `frontend/src/lib/fechas.test.ts` fuerza `TZ` a
+  `America/Guayaquil` (`vi.stubEnv`) y prueba ambos lados: que `soloFechaLocal` da el día
+  correcto, y que formatear la marca completa sin pasar por ahí reproduce el bug — así la
+  prueba no pasa "por accidente" en un entorno que ya corra en UTC.
+
+Verificado: `npm run test` (frontend) 47/47 en verde, `npm run build` limpio; `deno test`
+10/10 sigue en verde (sin cambios en Edge Functions); `npx supabase test db --local` 22/22 en
+verde, sin residuos de los fixtures nuevos (`propietario`/`parametro_sistema`/`especie` de
+prueba, confirmados en 0 filas después de correr la suite).
+
 ## 15. Guía de despliegue (Supabase alojado + Vercel)
 
 Hasta ahora todo el desarrollo fue local (Docker, sección 8). Esta sección documenta el

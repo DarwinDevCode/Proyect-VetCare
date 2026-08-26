@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import type { EventoHistorial } from '../../types/dominio';
 import type { ConsumoDeConsulta } from './api';
 import { COLOR_TIPO_EVENTO, ETIQUETA_TIPO_EVENTO, interpretarEvento } from './eventoHistorial';
+import { soloFechaLocal } from '../../lib/fechas';
 
 interface Props {
   evento: EventoHistorial;
@@ -28,20 +29,13 @@ export function EventoHistorialItem({
 }: Props) {
   const interpretado = interpretarEvento(evento);
 
-  // fecha_aplicacion/fecha_solicitud son DATE en la base; la vista las castea a
-  // timestamptz con medianoche UTC implicita ("2026-08-18T00:00:00+00:00"). Si se
-  // formatea esa marca con dayjs en un huso horario detras de UTC (America),
-  // convierte a hora local y el DIA CALENDARIO retrocede uno (medianoche UTC del 18
-  // se ve como las 19:00 del 17 en UTC-5) -- un bug real, no solo un detalle
-  // cosmetico. La correccion: tomar los primeros 10 caracteres (solo "YYYY-MM-DD",
-  // sin offset) y parsear eso, que dayjs interpreta como medianoche LOCAL, sin
-  // ninguna conversion de huso horario. Para consulta, en cambio, fecha_hora trae
-  // una hora real y si se debe mostrar tal cual, convertida a hora local.
-  const soloFecha = (fecha: string) => fecha.slice(0, 10);
+  // Para consulta, fecha_hora trae una hora real y si se debe mostrar tal
+  // cual, convertida a hora local. Para vacunacion/examen, ver soloFechaLocal
+  // (lib/fechas.ts) -- ahi va el detalle del bug de huso horario que corrige.
   const fechaTexto =
     evento.tipo_evento === 'consulta'
       ? dayjs(evento.fecha).format('DD/MM/YYYY HH:mm')
-      : dayjs(soloFecha(evento.fecha)).format('DD/MM/YYYY');
+      : dayjs(soloFechaLocal(evento.fecha)).format('DD/MM/YYYY');
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -131,7 +125,7 @@ export function EventoHistorialItem({
                 <Button
                   size="small"
                   sx={{ displayPrint: 'none' }}
-                  onClick={() => onAbrirCompletarExamen(evento.id_evento, soloFecha(evento.fecha))}
+                  onClick={() => onAbrirCompletarExamen(evento.id_evento, soloFechaLocal(evento.fecha))}
                 >
                   Completar resultado
                 </Button>
