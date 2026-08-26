@@ -1839,3 +1839,36 @@ cambio de `vite.config.ts`; `deno test --allow-net --allow-env supabase/function
 `supabase start` corriendo, 10/10 en verde (7 unitarias + 3 grupos de integración); `npx
 supabase test db --local` 15/15 en verde, base de datos sin residuos después de correr toda la
 suite.
+
+### Bug real reportado por el usuario: "al cambiar de pestaña, me devuelve al login" (2026-08-26)
+
+`frontend/src/auth/AuthContext.tsx` (personal) tenía **exactamente** el mismo patrón ya
+identificado y corregido como defectuoso en `PortalAuthContext.tsx` (ver más arriba, "Cuatro
+mejoras de experiencia del portal"), pero el arreglo nunca se aplicó ahí: su
+`onAuthStateChange` hacía `setCargando(true)` + recargaba el perfil completo ante **cualquier**
+evento de Supabase Auth, sin filtrar. GoTrue reemite `TOKEN_REFRESHED` (y a veces un
+`INITIAL_SESSION` redundante) cada vez que la pestaña recupera el foco/visibilidad — no solo en
+un cambio real de sesión. Con el patrón anterior, eso bastaba para expulsar al usuario:
+`RutaProtegida.tsx` redirige a `/ingresar` en cuanto `sesion` es `null`, y un vistazo momentáneo
+a `sesion=null` mientras `cargando=true` revalida el perfil (o un fallo transitorio de red justo
+al recuperar el foco, que `cargarPerfil` trata igual que "sin perfil") alcanza para disparar esa
+redirección.
+
+**Corregido** con el mismo mecanismo ya probado en el portal: un `useRef` (`usuarioActualId`)
+que guarda el `user.id` del usuario ya cargado; en cada evento de `onAuthStateChange`, si
+`session.user.id` coincide con ese ref, solo se refresca el objeto `session` (token nuevo) sin
+recargar el perfil ni mostrar el loader de pantalla completa — la recarga completa queda
+reservada para un cambio real de usuario (sign-in/sign-out genuino).
+
+**Verificación, con una limitación honesta**: se reprodujo el flujo (login → navegar a
+`/pacientes` → abrir otra pestaña → volver) sin que la sesión se perdiera, y `npm run test`
+sigue 44/44 en verde. **No se pudo forzar la condición exacta que dispara el bug** (GoTrue solo
+intenta refrescar el token cuando está cerca de expirar — `jwt_expiry = 3600`s en
+`config.toml` — y en la prueba el token seguía fresco, así que no se disparó ningún
+`TOKEN_REFRESHED` real durante el cambio de pestaña; confirmado revisando que no hubo ninguna
+llamada nueva a `/auth/v1/token` en esa ventana). La corrección se basa en que el patrón de
+código es **idéntico, línea por línea**, al que ya se diagnosticó y confirmó roto en
+`PortalAuthContext.tsx` — no en haber reproducido el fallo en vivo esta vez. Si el problema
+persiste tras este cambio, el siguiente paso es dejar la sesión abierta más de una hora (o
+achicar `jwt_expiry` en `config.toml` solo para probar) y repetir el cambio de pestaña
+confirmando en la pestaña Network que sí se dispara un `POST /auth/v1/token?grant_type=refresh_token`.
