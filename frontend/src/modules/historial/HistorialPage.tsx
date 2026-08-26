@@ -18,6 +18,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
+import PrintIcon from '@mui/icons-material/Print';
 import type { EventoHistorial, PacienteConFicha } from '../../types/dominio';
 import { buscarPacientesActivos, listarConsumosPorConsulta, listarHistorial, type ConsumoDeConsulta } from './api';
 import { mensajeError } from '../../lib/errors';
@@ -195,7 +196,7 @@ export function HistorialPage() {
       <Button
         startIcon={<ArrowBackIcon />}
         onClick={() => setPacienteSeleccionado(null)}
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, displayPrint: 'none' }}
       >
         Buscar otro paciente
       </Button>
@@ -203,7 +204,7 @@ export function HistorialPage() {
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, mb: 3 }}
+        sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, mb: 3, displayPrint: 'none' }}
       >
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -226,41 +227,63 @@ export function HistorialPage() {
           <Button variant="outlined" onClick={() => setDialogoExamen({ abierto: true })}>
             Nuevo examen
           </Button>
+          <Button startIcon={<PrintIcon />} onClick={() => window.print()}>
+            Exportar PDF
+          </Button>
         </Stack>
       </Stack>
 
       {errorHistorial && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, displayPrint: 'none' }}>
           {errorHistorial}
         </Alert>
       )}
 
-      <Stack spacing={2}>
-        {!cargandoHistorial && historial.length === 0 && (
-          <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Todavía no hay consultas, vacunas ni exámenes registrados para este paciente.
-            </Typography>
-          </Paper>
-        )}
-        {historial.map((evento) => (
-          <EventoHistorialItem
-            key={`${evento.tipo_evento}-${evento.id_evento}`}
-            evento={evento}
-            consumos={
-              evento.tipo_evento === 'consulta'
-                ? consumos.filter((c) => c.id_consulta === evento.id_evento)
-                : []
-            }
-            onAbrirVacunacion={(idConsulta) => setDialogoVacunacion({ abierto: true, idConsulta })}
-            onAbrirConsumo={(idConsulta) => setDialogoConsumo({ abierto: true, idConsulta })}
-            onAbrirExamen={(idConsulta) => setDialogoExamen({ abierto: true, idConsulta })}
-            onAbrirCompletarExamen={(idExamen, fechaSolicitud) =>
-              setDialogoCompletar({ idExamen, fechaSolicitud, abierto: true })
-            }
-          />
-        ))}
-      </Stack>
+      {/* RI-005, mismo patron que Facturacion: window.print() + hoja @media print
+          (index.css) que oculta todo salvo este bloque. El encabezado de arriba
+          lleva displayPrint:'none' porque no aporta nada nuevo en papel (ya
+          repite nombre/especie/propietario, que va aqui tambien) y sus botones
+          de accion no tienen sentido impresos. */}
+      <Box id="historial-imprimible">
+        <Box sx={{ display: 'none', displayPrint: 'block', mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Historial clínico · {paciente.nombre}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {paciente.especie.nombre}
+            {paciente.raza ? ` · ${paciente.raza.nombre}` : ''} ·{' '}
+            {calcularEdadTexto(paciente.fecha_nacimiento)} · Propietario: {paciente.propietario.nombres}{' '}
+            {paciente.propietario.apellidos}
+          </Typography>
+        </Box>
+
+        <Stack spacing={2}>
+          {!cargandoHistorial && historial.length === 0 && (
+            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Todavía no hay consultas, vacunas ni exámenes registrados para este paciente.
+              </Typography>
+            </Paper>
+          )}
+          {historial.map((evento) => (
+            <EventoHistorialItem
+              key={`${evento.tipo_evento}-${evento.id_evento}`}
+              evento={evento}
+              consumos={
+                evento.tipo_evento === 'consulta'
+                  ? consumos.filter((c) => c.id_consulta === evento.id_evento)
+                  : []
+              }
+              onAbrirVacunacion={(idConsulta) => setDialogoVacunacion({ abierto: true, idConsulta })}
+              onAbrirConsumo={(idConsulta) => setDialogoConsumo({ abierto: true, idConsulta })}
+              onAbrirExamen={(idConsulta) => setDialogoExamen({ abierto: true, idConsulta })}
+              onAbrirCompletarExamen={(idExamen, fechaSolicitud) =>
+                setDialogoCompletar({ idExamen, fechaSolicitud, abierto: true })
+              }
+            />
+          ))}
+        </Stack>
+      </Box>
 
       <NuevaConsultaDialog
         idPaciente={paciente.id_paciente}

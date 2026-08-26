@@ -854,3 +854,31 @@ limpio, pero `npm run build` (que corre `tsc -b`, con project references) encont
 reales que el primero no vio — un tipo `Dayjs` sin importar y una llamada a `recargar()` con un
 argumento de menos. A partir de aquí, la verificación de cada fase usa `npm run build`, no
 `tsc --noEmit` suelto.
+
+### Fase 1c — completada: Historial Clínico
+
+El módulo más pequeño de esta fase: los formularios (`NuevaConsultaDialog`, `NuevaVacunacionDialog`,
+`NuevoExamenDialog`, `CompletarExamenDialog`, `RegistrarConsumoDialog`) no necesitaron ningún
+cambio de código — la sección 9 ya documentaba por qué este módulo usa diálogos en vez de
+páginas completas para el alta (el timeline, por su tamaño y heterogeneidad, vive embebido en
+la propia página; los formularios de alta sí siguen el patrón "diálogo" del resto del
+proyecto). El wireframe 1k muestra "consulta en curso" como flujo de página completa, pero
+convertir esto ahora sería revertir esa decisión ya tomada y documentada, no un reskin —
+se deja así a propósito.
+
+- **"Exportar PDF"** (1j) en `HistorialPage.tsx`: mismo patrón exacto que RI-005 en
+  Facturación — `window.print()` + un nuevo bloque `#historial-imprimible` en la hoja
+  `@media print` de `index.css` (que ya ocultaba todo salvo `#comprobante-factura`/
+  `#reporte-ingresos`; ahora también este). El encabezado con nombre/especie/propietario que
+  ya se ve en pantalla lleva `displayPrint:'none'` (no aporta nada nuevo en papel y sus
+  botones de acción no tienen sentido impresos) y se agregó una copia solo para impresión
+  (`display:'none', displayPrint:'block'`) dentro del bloque imprimible — mismo truco de
+  "encabezado propio para papel" que ya usa el comprobante de factura. Los botones de acción
+  dentro de cada evento del timeline ("Aplicar vacuna a esta consulta", "Completar
+  resultado", etc.) también llevan `displayPrint:'none'`. Verificado: la regla de impresión
+  carga con el nuevo selector, y el encabezado de solo-impresión existe en el DOM con el
+  contenido correcto y `display:none` en pantalla (no se pudo renderizar una vista previa de
+  impresión real en este entorno, misma limitación ya documentada para RI-005 en Facturación).
+- **1l (Carnet de vacunas) y 1m (Exámenes)**: sin cambios de código, por la misma razón que
+  Agenda — nada que el wireframe pide quitar existía, y lo que agrega (próxima dosis, tercer
+  estado "en proceso") queda fuera de esta fase por diseño (Fase 2 / decisión ya tomada).
