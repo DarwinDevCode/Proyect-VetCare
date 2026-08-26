@@ -882,3 +882,24 @@ se deja así a propósito.
 - **1l (Carnet de vacunas) y 1m (Exámenes)**: sin cambios de código, por la misma razón que
   Agenda — nada que el wireframe pide quitar existía, y lo que agrega (próxima dosis, tercer
   estado "en proceso") queda fuera de esta fase por diseño (Fase 2 / decisión ya tomada).
+
+### Fase 1d — completada: Inventario y Medicamentos
+
+- **Filtros por tipo y "Bajo mínimo"** (1n) en `InventarioPage.tsx`: chips sobre el mismo
+  array ya cargado (mismo criterio que el filtro por especie de la Fase 1a) — no hay consulta
+  nueva al servidor. Se usaron chips en vez de un `select`, a diferencia de Pacientes: aquí el
+  wireframe los muestra como chips y el proyecto ya tiene ese patrón establecido (selector de
+  veterinarios en Agenda), así que seguirlo es más consistente que introducir un segundo
+  patrón de filtro. El chip "Por vencer" del wireframe no se agregó — depende de datos de
+  vencimiento que llegan en la Fase 2.
+- **`ProductoDetalleDialog.tsx` (1o) no necesitó cambios de código.** Ya tenía la sección
+  "Movimientos" con tabla de histórico (RF-027); lo único que faltaba del wireframe —el panel
+  de Lotes— depende del mismo dato de vencimiento de la Fase 2, así que no hay nada que
+  reestructurar todavía.
+- **Botón "Generar/Crear orden de compra" (1n/1p) no se agregó.** El módulo de Compras y
+  Proveedores al que apuntaría no existe hasta la Fase 4 — un botón que abriera algo
+  inexistente sería peor que no tenerlo.
+
+Verificado en navegador: "Bajo mínimo" aísla correctamente el único producto por debajo de su
+nivel; el filtro por tipo "Vacuna" muestra exactamente las 3 vacunas del catálogo; ambos
+filtros combinan de forma independiente. `npm run build` limpio.
