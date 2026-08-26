@@ -19,7 +19,9 @@ import PetsIcon from '@mui/icons-material/Pets';
 import EventIcon from '@mui/icons-material/Event';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LogoutIcon from '@mui/icons-material/Logout';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import { usePortalAuth } from './PortalAuthContext';
+import { CambiarPasswordDialog } from './CambiarPasswordDialog';
 
 const NAV = [
   { ruta: '/portal/mascotas', etiqueta: 'Mis mascotas', Icono: PetsIcon },
@@ -37,6 +39,7 @@ export function PortalLayout() {
   const { sesion, cerrarSesion } = usePortalAuth();
   const location = useLocation();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false);
 
   if (!sesion) return null;
 
@@ -77,6 +80,15 @@ export function PortalLayout() {
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
+                setDialogoPasswordAbierto(true);
+              }}
+            >
+              <LockResetIcon fontSize="small" sx={{ mr: 1 }} />
+              Cambiar contraseña
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null);
                 cerrarSesion();
               }}
             >
@@ -90,6 +102,8 @@ export function PortalLayout() {
       <Container maxWidth="md" sx={{ py: 3, px: { xs: 2, sm: 3 }, pb: { xs: 9, sm: 3 } }}>
         <Outlet />
       </Container>
+
+      <CambiarPasswordDialog abierto={dialogoPasswordAbierto} onCerrar={() => setDialogoPasswordAbierto(false)} />
 
       <Paper
         elevation={3}

@@ -22,9 +22,17 @@ import AddIcon from '@mui/icons-material/Add';
 import EventIcon from '@mui/icons-material/Event';
 import dayjs from 'dayjs';
 import type { PacienteConFicha } from '../types/dominio';
-import { listarMisCitas, listarMisMascotas, type CitaPortal } from './api';
+import { cancelarMiCita, listarMisCitas, listarMisMascotas, type CitaPortal } from './api';
 import { mensajeError } from '../lib/errors';
 import { SolicitarCitaDialog } from './SolicitarCitaDialog';
+
+// RF-043 (ampliacion posterior a la Fase 5, ver CLAUDE.md seccion 14): el
+// propietario puede cancelar su propia cita mientras siga 'solicitada' o
+// 'programada' -- una vez 'atendida' ya no tiene sentido, y 'cancelada' ya lo
+// esta.
+function puedeCancelarse(estado: string): boolean {
+  return estado === 'solicitada' || estado === 'programada';
+}
 
 const ETIQUETA_ESTADO: Record<string, string> = {
   solicitada: 'Solicitada',
@@ -49,6 +57,8 @@ export function CitasPortalPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [cancelandoId, setCancelandoId] = useState<number | null>(null);
+  const [guardandoCancelacion, setGuardandoCancelacion] = useState(false);
 
   const recargar = useCallback(async () => {
     setCargando(true);
@@ -67,6 +77,20 @@ export function CitasPortalPage() {
   useEffect(() => {
     recargar();
   }, [recargar]);
+
+  async function confirmarCancelacion(idCita: number) {
+    setGuardandoCancelacion(true);
+    setError(null);
+    try {
+      await cancelarMiCita(idCita);
+      setCancelandoId(null);
+      await recargar();
+    } catch (err) {
+      setError(mensajeError(err));
+    } finally {
+      setGuardandoCancelacion(false);
+    }
+  }
 
   return (
     <Box>
@@ -126,6 +150,27 @@ export function CitasPortalPage() {
                       {c.motivo}
                     </Typography>
                   )}
+                  {puedeCancelarse(c.estado) &&
+                    (cancelandoId === c.id_cita ? (
+                      <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center' }}>
+                        <Typography variant="body2">¿Cancelar esta cita?</Typography>
+                        <Button size="small" onClick={() => setCancelandoId(null)} disabled={guardandoCancelacion}>
+                          No
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => confirmarCancelacion(c.id_cita)}
+                          loading={guardandoCancelacion}
+                        >
+                          Sí, cancelar
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Button size="small" color="error" sx={{ mt: 1 }} onClick={() => setCancelandoId(c.id_cita)}>
+                        Cancelar cita
+                      </Button>
+                    ))}
                 </CardContent>
               </Card>
             ))}
@@ -140,6 +185,7 @@ export function CitasPortalPage() {
                   <TableCell>Veterinario</TableCell>
                   <TableCell>Motivo</TableCell>
                   <TableCell>Estado</TableCell>
+                  <TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -153,6 +199,28 @@ export function CitasPortalPage() {
                     <TableCell>{c.motivo || '—'}</TableCell>
                     <TableCell>
                       <Chip label={ETIQUETA_ESTADO[c.estado]} size="small" color={COLOR_ESTADO[c.estado]} />
+                    </TableCell>
+                    <TableCell align="right">
+                      {puedeCancelarse(c.estado) &&
+                        (cancelandoId === c.id_cita ? (
+                          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                            <Button size="small" onClick={() => setCancelandoId(null)} disabled={guardandoCancelacion}>
+                              No
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => confirmarCancelacion(c.id_cita)}
+                              loading={guardandoCancelacion}
+                            >
+                              Sí, cancelar
+                            </Button>
+                          </Stack>
+                        ) : (
+                          <Button size="small" color="error" onClick={() => setCancelandoId(c.id_cita)}>
+                            Cancelar
+                          </Button>
+                        ))}
                     </TableCell>
                   </TableRow>
                 ))}

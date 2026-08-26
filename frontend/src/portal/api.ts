@@ -5,6 +5,7 @@ import type {
   Especie,
   PacienteConFicha,
   Pago,
+  TratamientoPortal,
   VacunaCarnetPortal,
 } from '../types/dominio';
 
@@ -41,6 +42,20 @@ export async function listarCarnetPorPaciente(idPaciente: number): Promise<Vacun
     .select('*')
     .eq('id_paciente', idPaciente)
     .order('fecha_aplicacion', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+// Ampliacion posterior a la Fase 5, confirmada explicitamente con el cliente
+// (CLAUDE.md seccion 14): tratamientos de una mascota propia, sobre
+// v_tratamientos_portal -- expone solo tratamiento/motivo/fecha/peso, RN-006
+// sigue intacto para diagnostico y hallazgos (la vista ni los selecciona).
+export async function listarTratamientosPorPaciente(idPaciente: number): Promise<TratamientoPortal[]> {
+  const { data, error } = await supabase
+    .from('v_tratamientos_portal')
+    .select('*')
+    .eq('id_paciente', idPaciente)
+    .order('fecha_hora', { ascending: false });
   if (error) throw error;
   return data;
 }
@@ -87,6 +102,16 @@ export async function crearSolicitudCita(datos: {
     id_veterinario: null,
     id_usuario_registro: null,
   });
+  if (error) throw error;
+}
+
+// Cancelar una cita propia -- fn_cancelar_cita_portal (SECURITY DEFINER) hace la
+// verificacion de dueño/estado ella misma y solo toca la columna estado; no hay
+// politica RLS UPDATE para el portal sobre cita a proposito (ver CLAUDE.md
+// seccion 14: un WITH CHECK no puede impedir que el mismo PATCH cambie ademas
+// otras columnas).
+export async function cancelarMiCita(idCita: number): Promise<void> {
+  const { error } = await supabase.rpc('fn_cancelar_cita_portal', { p_id_cita: idCita });
   if (error) throw error;
 }
 
