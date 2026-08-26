@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -31,7 +32,19 @@ export function PacientesPage() {
   const { sesion } = useAuth();
   const puedeRegistrar = sesion?.rol.codigo === 'recepcionista';
 
+  // Semilla desde ?q=, que llega del buscador de la barra superior (AppLayout).
+  // No puede ser un useState perezoso: AppLayout persiste montado entre
+  // navegaciones (es el layout padre del <Outlet/>), asi que una busqueda
+  // hecha estando ya en /pacientes no remonta esta pagina y el inicializador
+  // perezoso nunca se re-ejecutaria. El efecto si reacciona al cambio de
+  // parametro; despues, la busqueda dentro de esta pagina sigue siendo local
+  // (no se sincroniza de vuelta a la URL en cada tecla).
+  const [searchParams] = useSearchParams();
   const [texto, setTexto] = useState('');
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) setTexto(q);
+  }, [searchParams]);
   const [fichas, setFichas] = useState<PacienteConFicha[]>([]);
   const [especies, setEspecies] = useState<Especie[]>([]);
   const [cargando, setCargando] = useState(true);

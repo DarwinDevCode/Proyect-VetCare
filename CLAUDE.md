@@ -441,6 +441,9 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   parámetro en vivo en vez de la constante hardcodeada.
 
 ### Pendiente
+- **Rediseño visual "Organic" + ampliaciones de alcance — en curso, por fases.** Fase 0
+  completada (ver sección 14); quedan las Fases 1 a 6. No commitear ni desplegar ninguna fase
+  sin haberla verificado por separado — es la condición bajo la que el usuario aprobó el plan.
 - Definir con el cliente el porcentaje de impuesto a aplicar. Ya no está hardcodeado: es el
   parámetro `impuesto_defecto_pct` en `parametro_sistema`, editable desde Administración >
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
@@ -683,3 +686,88 @@ RLS de `especie`/`parametro_sistema` (Administrador puede, Veterinario no), y bi
 registrando cada uno de esos cambios con el identificador correcto según la tabla. También en
 navegador con la cuenta `administrador`: las cinco pestañas cargan datos reales sin errores de
 consola.
+
+## 14. Rediseño visual «Organic» y ampliaciones de alcance (en curso, por fases)
+
+**Origen.** El cliente aportó un proyecto de Claude Design con 22 pantallas de escritorio
+que cubren los seis módulos existentes más un sistema visual nuevo ("Organic": paleta
+terracota/oliva, tipografía Caprasimo para encabezados y Figtree para cuerpo, controles tipo
+píldora). Al revisar las 22 pantallas se encontró que tres reintroducen funcionalidad que la
+ERS excluye explícitamente en "Fuera del alcance", y una contradice el supuesto de que "el
+propietario no es usuario del sistema" (sección 1). Se confirmó cada decisión con el cliente
+antes de tocar código, no por reinterpretación propia:
+
+- **Portal del propietario** — se construye de verdad, con acceso emitido por Recepción
+  (no autoregistro público). Amplía deliberadamente la exclusión de "Portal o aplicación de
+  autoservicio para el propietario" de la sección 1.2.
+- **Compras y Proveedores** — se construye de verdad. Amplía deliberadamente la exclusión de
+  "Compras, órdenes de compra y gestión de proveedores" — la misma que la sección 2 ya
+  documentaba como parte del `.docx` de arquitectura superado; se reabre ahora por
+  instrucción explícita del cliente, no porque el SRS final la haya dejado de excluir.
+- **Lista de espera** — tabla real, sin notificación por WhatsApp/Email/SMS (eso sigue
+  fuera de alcance, sección 1.2).
+- **Lotes y vencimiento en Inventario** — versión ligera: metadata descriptiva sobre
+  `movimiento_inventario`, sin tocar `fn_actualizar_existencia` (sección 6), que sigue siendo
+  la única garantía real de RN-010.
+- **Signos vitales y "próxima dosis" de vacuna** — ampliaciones pequeñas de RF-016/RF-018,
+  sin contradecir ningún "Fuera del alcance".
+
+El plan completo (migraciones exactas, extensión de `theme.ts`, archivos por fase,
+verificación) se diseñó y aprobó con el cliente antes de escribir código. Ejecución **por
+fases, con revisión y verificación entre cada una** — no una sola pasada — por pedido
+explícito del cliente. La numeración RF/RN/RI de Compras y Proveedores y del Portal del
+propietario se asigna cuando esos módulos se implementen (Fases 4 y 5), no antes.
+
+### Fase 0 — completada: tema visual y shell de navegación
+
+Solo tema y layout. **Sin cambios de esquema, sin RF nuevo, sin módulos funcionales
+tocados** — el criterio de "listo" fue que el comportamiento de la app siguiera siendo
+exactamente el mismo que antes, solo con el lenguaje visual nuevo.
+
+- **`frontend/src/theme.ts`**: se extendió, no se reemplazó. Los tokens de la hoja de estilos
+  "Organic" (rampas neutral/accent/accent-2 de 100 a 900, radios, sombras) se exportan como
+  la constante `ORGANIC`, no dentro de `palette` — MUI no tiene un lugar nativo para una
+  rampa de 9 tonos por color (`palette.primary`/`secondary` solo admiten `main/light/dark`).
+  Los `color-mix()` de la hoja original se precalcularon a `rgba()` fijo. Encabezados
+  (`h1`-`h6`) en Caprasimo, cuerpo en Figtree; botones/chips/inputs a `border-radius: 999`
+  (píldora); diálogos y tarjetas a los radios grandes de `ORGANIC.radius`.
+- **Fuentes**: `@fontsource/figtree` + `@fontsource/caprasimo` (paquetes npm), no un `<link>`
+  a Google Fonts — no depende de que `fonts.googleapis.com` esté disponible en la red de la
+  clínica (coherente con RNF-021, "sin instalar software adicional" no significa "sin
+  depender de una CDN externa"). Importadas en `main.tsx`, junto al `import './index.css'`
+  ya existente.
+- **`frontend/src/layout/AppLayout.tsx`**: se restyleó el `Drawer`/`AppBar` existentes con
+  los tokens Organic (ítem de nav activo en `accent[100]`/`accent[800]`). El contrato que
+  **no se tocó** es `modulosParaRol(rol.codigo)` como única fuente de verdad del nav
+  (RI-002) — verificado en navegador con las tres cuentas que cada una sigue viendo
+  exactamente los módulos de la matriz 3.8 (Recepcionista: Pacientes/Agenda/Facturación;
+  Veterinario: Pacientes/Agenda/Historial/Inventario; Administrador:
+  Inventario/Facturación/Administración), ni uno más ni uno menos.
+- **Buscador de la barra superior**: no es un buscador propio, es un atajo que navega a
+  `/pacientes?q=<texto>` reutilizando el buscador que ya existe ahí (RF-007) — sin
+  duplicar lógica de búsqueda. **Bug real encontrado y corregido**: `PacientesPage` leía el
+  parámetro `?q=` con un `useState` de inicializador perezoso, que solo se ejecuta al
+  montar. Como `AppLayout` es el layout padre del `<Outlet/>` y persiste montado entre
+  navegaciones, una búsqueda hecha estando ya en `/pacientes` no remonta la página y el
+  inicializador nunca se re-ejecuta — el campo de texto nunca se actualizaba. Se cambió a un
+  `useEffect` que reacciona a `searchParams`, que sí se dispara en ambos casos (llegando
+  desde otra página o ya estando en Pacientes). Patrón a tener presente para cualquier
+  futura lectura de un query param en una página que vive detrás de un layout persistente:
+  un inicializador perezoso de `useState` no es suficiente.
+- **Campana de notificaciones**: en esta fase es solo visual (sin badge, sin conteo en
+  vivo). Conectarla a `v_alerta_stock` queda para la Fase 6 (Dashboard), donde las alertas
+  de stock ya son un KPI de primera clase — evita disparar una consulta nueva en cada
+  carga de página de las seis fases restantes antes de que tenga un consumidor real.
+- **Entrada de nav "Dashboard"**: deliberadamente **no** se agregó en esta fase. El plan
+  original la contemplaba en Fase 0, pero al implementar se encontró que apuntarla a la
+  ruta `/` (que hoy usa `InicioPorRol` para redirigir según rol) rompería el resaltado del
+  ítem activo: `location.pathname.startsWith(modulo.ruta)` con `ruta: '/'` coincide con
+  *cualquier* ruta de la app, así que "Dashboard" aparecería siempre seleccionado. Se
+  pospuso a la Fase 6, cuando exista una ruta propia (`/inicio` o similar) y una
+  `DashboardPage` real a la que apuntar.
+
+**Verificado**: `tsc --noEmit` y `npm run build` limpios; navegador con las tres cuentas
+(nav correcto por rol, tipografía Caprasimo/Figtree confirmada por estilo computado, radios
+de 999px en botones/chips, color de fondo `#fff2eb` en el ítem de nav activo — coincide
+exactamente con `ORGANIC.accent[100]`); buscador de la barra superior probado desde otra
+página y ya estando en Pacientes, ambos casos filtran correctamente tras la corrección.
