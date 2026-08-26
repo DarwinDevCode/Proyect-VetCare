@@ -1872,3 +1872,83 @@ código es **idéntico, línea por línea**, al que ya se diagnosticó y confirm
 persiste tras este cambio, el siguiente paso es dejar la sesión abierta más de una hora (o
 achicar `jwt_expiry` en `config.toml` solo para probar) y repetir el cambio de pestaña
 confirmando en la pestaña Network que sí se dispara un `POST /auth/v1/token?grant_type=refresh_token`.
+
+## 15. Guía de despliegue (Supabase alojado + Vercel)
+
+Hasta ahora todo el desarrollo fue local (Docker, sección 8). Esta sección documenta el
+despliegue a un proyecto Supabase alojado + Vercel para el frontend (conectado a GitHub, sin
+CLI de Vercel — cada push a `main` despliega solo). Pasos marcados **[TÚ]** requieren tu cuenta
+o una decisión que no me corresponde asumir (org, región, contraseña de BD, plan de pago);
+**[YO]** los ejecuto una vez que el paso anterior esté listo.
+
+### 15.1 Supabase
+
+1. **[TÚ]** Crear el proyecto en https://supabase.com/dashboard → *New project* (org, región,
+   contraseña de base de datos — guárdala, hace falta para `db push`).
+2. **[TÚ]** `npx supabase login` desde una terminal interactiva propia (este entorno no es TTY,
+   no puedo completar el login por OAuth) — o generar un token en
+   `https://supabase.com/dashboard/account/tokens` y pasarlo como `SUPABASE_ACCESS_TOKEN`.
+3. **[YO]** `npx supabase link --project-ref <ref>` (el ref lo da el paso 1).
+4. **[YO, con tu confirmación explícita]** `npx supabase db push` — aplica las 15 migraciones
+   versionadas (`supabase/migrations/`) al proyecto alojado. Acción real contra una base de
+   datos en la nube, se confirma antes de correr.
+5. **[YO o TÚ vía SQL Editor del dashboard]** Cargar los **catálogos base** — `seed.sql`
+   **nunca** se aplica a un proyecto alojado (`db push` solo corre migraciones, no
+   `seed.sql`), y sin esto **no se puede crear ni la primera cuenta de Administrador** (FK de
+   `usuario.id_rol` a `rol`, que quedaría vacía). Ejecutar contra el proyecto alojado
+   *solo* las secciones 1 y 2 de `supabase/seed.sql` (roles + especie/raza) — **nunca** la
+   sección 3 (usuarios de demostración con contraseñas conocidas y publicadas en este archivo).
+6. **[YO, con tu confirmación]** `npx supabase secrets set --env-file supabase/functions/.env`
+   — sube `VETCARE_SMTP_*` (la contraseña de aplicación de Gmail) al proyecto alojado. Nunca se
+   commitea (`supabase/.gitignore`), pero sí viaja al panel de secretos de Supabase; confirmar
+   antes de correr por tratarse de una credencial real.
+7. **[YO]** `npx supabase functions deploy admin-usuarios portal-acceso portal-olvide-password`
+   — las tres Edge Functions (`_shared/` no se despliega, es código compartido).
+8. **[TÚ, en el dashboard, Authentication → URL Configuration]** Una vez que exista la URL de
+   Vercel (sección 15.2): actualizar `Site URL` y agregar el dominio a `Redirect URLs` — hoy
+   apuntan a `http://127.0.0.1:3000` (valor de desarrollo local en `config.toml`, que no se
+   sincroniza solo a un proyecto alojado). Bajo riesgo funcional inmediato (ningún flujo actual
+   de la app depende de un `redirectTo` de GoTrue — las cuentas se crean con
+   `email_confirm: true` y las contraseñas se fijan directo por la Admin API, sin correo de
+   confirmación nativo de GoTrue), pero es higiene correcta antes de dar el proyecto por
+   "en producción".
+9. **[TÚ]** Bootstrap del primer Administrador — procedimiento ya documentado en la sección 7
+   (API admin de GoTrue vía `curl` + `insert into public.usuario`), apuntando al proyecto
+   alojado (`SUPABASE_URL`/`SERVICE_ROLE_KEY` del paso 1, no los de Docker local). Sin esto,
+   nadie puede entrar a `/administracion` a dar de alta al resto del personal.
+
+### 15.2 Vercel (frontend, conectado a GitHub)
+
+1. **[TÚ]** En https://vercel.com/dashboard → *Add New → Project* → importar el repo de GitHub
+   de este proyecto.
+2. **[TÚ]** Configuración del proyecto:
+   - **Root Directory**: `frontend` (el repo tiene `frontend/`, `supabase/` y artefactos en la
+     raíz — Vercel debe construir solo la SPA).
+   - **Framework Preset**: Vite (Vercel lo detecta solo al ver `frontend/vite.config.ts`).
+   - **Build Command**: `npm run build` (por defecto).
+   - **Output Directory**: `dist` (por defecto de Vite).
+3. **[TÚ]** Variables de entorno del proyecto Vercel (Settings → Environment Variables) —
+   **las del proyecto alojado del paso 15.1, no las de Docker local**:
+   - `VITE_SUPABASE_URL` = URL del proyecto (`https://<ref>.supabase.co`)
+   - `VITE_SUPABASE_ANON_KEY` = `anon`/`publishable` key del proyecto (Settings → API del
+     dashboard de Supabase)
+4. **`frontend/vercel.json`** (ya agregado a este repo) — *rewrite* de toda ruta a
+   `index.html`: la SPA usa `BrowserRouter` (no `HashRouter`), así que una ruta profunda como
+   `/portal/mascotas` cargada directo (no navegada desde `/`) daría 404 en un hosting estático
+   sin esto.
+5. **[TÚ]** Deploy — Vercel lo dispara solo al conectar el repo, y de ahí en adelante en cada
+   push a `main` (o al branch que configures como producción).
+6. Los `CORS_HEADERS` de las tres Edge Functions ya son `Access-Control-Allow-Origin: '*'`
+   (`supabase/functions/*/index.ts`) — no hace falta tocarlos para que el dominio de Vercel
+   pueda invocarlas.
+
+### 15.3 Verificación post-despliegue
+
+1. `https://<tu-dominio>.vercel.app/ingresar` carga (confirma el *rewrite* de `vercel.json` y
+   las env vars de Supabase).
+2. Login con la cuenta de Administrador creada en el paso 15.1.9.
+3. Especie/raza aparecen en el formulario de alta de paciente (confirma el paso 15.1.5).
+4. Crear un propietario+paciente de prueba real, confirmar que el correo automático del portal
+   llega (usa los secretos del paso 15.1.6).
+5. `/portal/ingresar` cargado directo por URL (no navegado) — confirma el *rewrite* de SPA para
+   la rama `/portal/*` también, no solo para rutas de personal.
