@@ -818,3 +818,39 @@ abrirse con clics simulados a medias (un `.click()` sintético solo dispara `cli
 que React confirmara el cambio de estado tras un evento nativo. Ninguno de los dos es un bug
 de la aplicación — se resolvió despachando la secuencia completa
 `mousedown`→`mouseup`→`click` y esperando un tick antes de leer el resultado.
+
+### Fase 1b — completada: Agenda y Citas
+
+- **Vista semanal nueva** (`AgendaSemanal.tsx`, 1f), complementaria a la vista por día que
+  ya existía (`AgendaGrid.tsx`), no un reemplazo: responden preguntas distintas. La vista por
+  día (eje día × veterinario) sigue siendo la mejor para "quién está libre ahora mismo,
+  comparando varios veterinarios"; la semanal (eje semana × día, un solo veterinario) es la
+  mejor para "cuándo tiene un hueco esta semana el Dr. Vera". Alternable con un
+  `ToggleButtonGroup` Día/Semana. `AgendaSemanal` reutiliza `BloqueCita` tal cual — el
+  componente ya era agnóstico de qué representa cada columna. Nueva
+  `listarCitasDeLaSemana()` en `agenda/api.ts`, mismo patrón que `listarCitasDelDia()` (trae
+  todos los veterinarios, el filtro de cuál mostrar se aplica en la UI). El cálculo del lunes
+  de la semana se hizo a mano (`(fecha.day() + 6) % 7`) en vez de agregar el plugin `isoWeek`
+  de dayjs solo para esto.
+- **Bug real encontrado y corregido, no cosmético**: al crear una cita desde un hueco vacío
+  de la vista semanal, `NuevaCitaDialog` tomaba la fecha de `fechaPorDefecto` (el lunes de
+  referencia de la semana que se está viendo) y la hora de `prefill.hora` — así que una cita
+  creada haciendo clic en el jueves a las 10:00 se guardaba el **lunes** a las 10:00, con el
+  día equivocado. En la vista por día nunca se notaba porque ahí `fechaPorDefecto` y
+  `prefill.hora` siempre caen en el mismo día. Corregido: cuando el prefill trae `hora`, esa
+  fecha (que ya incluye el día correcto del hueco clicado) tiene prioridad sobre
+  `fechaPorDefecto`. Verificado de extremo a extremo: clic en miércoles 26/08 10:00 → diálogo
+  prellenado con esa fecha y hora exactas → cita creada y confirmada por SQL en
+  `2026-08-26 15:00:00+00` (10:00 hora local, Ecuador UTC-5).
+- **1g (Agendar cita) y 1i (Modificar/cancelar cita) no necesitaron cambios de código.** Ya
+  estaban limpios de lo que el wireframe pedía quitar: no existía ningún cuadro de
+  notificación WhatsApp que remover (nunca se construyó), ni wiring de "Notificar al dueño" o
+  "Liberar cupo a lista de espera" (esto último llega en la Fase 3, cuando exista la tabla).
+  El campo "Motivo de cancelación" del wireframe 1i tampoco se agregó: requeriría una columna
+  nueva en `cita`, y esta fase se comprometió a cero cambios de esquema.
+
+**Nota de proceso, no de la app**: `tsc --noEmit` corrido suelto en la raíz del frontend pasó
+limpio, pero `npm run build` (que corre `tsc -b`, con project references) encontró dos errores
+reales que el primero no vio — un tipo `Dayjs` sin importar y una llamada a `recargar()` con un
+argumento de menos. A partir de aquí, la verificación de cada fase usa `npm run build`, no
+`tsc --noEmit` suelto.
