@@ -53,6 +53,10 @@ export function PacientesPage() {
   const [filtroEspecie, setFiltroEspecie] = useState<number | ''>('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Aviso no bloqueante del alta automática de portal (ver NuevoPacienteDialog.tsx
+  // / CLAUDE.md sección 14): solo aparece cuando hay algo que Recepción deba saber
+  // (sin correo, envío fallido); el caso feliz no interrumpe nada.
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const [dialogoNuevoAbierto, setDialogoNuevoAbierto] = useState(false);
   const [fichaSeleccionada, setFichaSeleccionada] = useState<PacienteConFicha | null>(null);
@@ -152,6 +156,11 @@ export function PacientesPage() {
           {error}
         </Alert>
       )}
+      {aviso && (
+        <Alert severity="info" onClose={() => setAviso(null)} sx={{ mb: 2 }}>
+          {aviso}
+        </Alert>
+      )}
 
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
@@ -216,7 +225,10 @@ export function PacientesPage() {
         abierto={dialogoNuevoAbierto}
         especies={especies}
         onCerrar={() => setDialogoNuevoAbierto(false)}
-        onCreado={() => recargar(texto)}
+        onCreado={(avisoPortal) => {
+          recargar(texto);
+          setAviso(avisoPortal ?? null);
+        }}
       />
 
       <FichaDialog

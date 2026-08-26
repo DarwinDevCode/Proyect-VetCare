@@ -24,6 +24,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import type { EventoHistorial, Especie, PacienteConFicha } from '../../types/dominio';
 import { EspecieRazaSelect } from './EspecieRazaSelect';
 import { AccesoPortalDialog } from './AccesoPortalDialog';
+import { ReenviarAccesoPortalDialog } from './ReenviarAccesoPortalDialog';
 import { actualizarPaciente, actualizarPropietario } from './api';
 import { listarCitasPorPaciente, type CitaResumen } from '../agenda/api';
 import { listarHistorial } from '../historial/api';
@@ -68,6 +69,7 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
 
   const [editandoPropietario, setEditandoPropietario] = useState(false);
   const [dialogoAccesoAbierto, setDialogoAccesoAbierto] = useState(false);
+  const [dialogoReenvioAbierto, setDialogoReenvioAbierto] = useState(false);
   const [editandoPaciente, setEditandoPaciente] = useState(false);
 
   const [formPropietario, setFormPropietario] = useState({
@@ -294,7 +296,12 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
                   )}
                   {puedeEditar &&
                     (ficha.propietario.id_usuario_portal ? (
-                      <Chip label="Con acceso al portal" size="small" color="success" variant="outlined" sx={{ mt: 0.5, alignSelf: 'flex-start' }} />
+                      <Stack direction="row" spacing={1} sx={{ mt: 0.5, alignItems: 'center', alignSelf: 'flex-start' }}>
+                        <Chip label="Con acceso al portal" size="small" color="success" variant="outlined" />
+                        <Button size="small" onClick={() => setDialogoReenvioAbierto(true)}>
+                          Reenviar acceso
+                        </Button>
+                      </Stack>
                     ) : (
                       <Button
                         size="small"
@@ -473,6 +480,12 @@ export function FichaDialog({ ficha, especies, puedeEditar, onCerrar, onActualiz
       propietario={dialogoAccesoAbierto ? ficha.propietario : null}
       onCerrar={() => setDialogoAccesoAbierto(false)}
       onEmitido={onActualizado}
+    />
+
+    <ReenviarAccesoPortalDialog
+      propietario={dialogoReenvioAbierto ? ficha.propietario : null}
+      onCerrar={() => setDialogoReenvioAbierto(false)}
+      onReenviado={onActualizado}
     />
     </>
   );

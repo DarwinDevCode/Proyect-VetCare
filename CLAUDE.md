@@ -470,7 +470,9 @@ nombre de destino antes de subir nada — no asumir que es `main`.
   Parámetros (Módulo 6) y leído en vivo por `NuevaFacturaDialog`. Sigue siendo 15 como valor
   inicial — lo que falta es la decisión del cliente, no la mecánica para aplicarla.
 - Vinculación a un proyecto Supabase alojado para despliegue (hoy el desarrollo es local vía
-  Docker; ver sección 8).
+  Docker; ver sección 8). Cuando se vincule, hace falta correr `supabase secrets set --env-file
+  supabase/functions/.env` para que el envío de correo del portal (sección 14) funcione también
+  ahí — hoy los secretos `VETCARE_SMTP_*` solo existen en el entorno local.
 - Definir con el cliente los valores TBD del SRS: RNF-016 (tiempo de respuesta objetivo),
   RNF-018 (disponibilidad comprometida), RNF-019 (política de respaldo).
 
@@ -1367,3 +1369,103 @@ confirmado por DOM (`Mui-selected` solo en el item activo, nunca en
 
 Con esto se cierra el plan completo del rediseño Organic (7 fases). No queda
 ninguna fase pendiente en [`REDISENO-ORGANIC-PLAN.md`](REDISENO-ORGANIC-PLAN.md).
+
+### Ampliación posterior a la Fase 5 — alta automática del portal + envío de credenciales por correo (2026-08-26)
+
+Cambio de flujo de negocio sobre el Módulo 8, pedido por instrucción explícita del cliente
+**después** de cerrado el plan de rediseño Organic — no es una reinterpretación propia del
+diseño de la Fase 5, lo contradice a propósito: hasta aquí, RF-042 era un acto explícito de
+Recepción ("Dar acceso al portal" desde la ficha del propietario, escribiendo correo y
+contraseña a mano). Ahora el sistema **asegura** el acceso al portal del propietario cada vez
+que se registra un paciente (RF-004/RF-005), sin que Recepción tenga que abrir ningún diálogo
+aparte, y envía las credenciales por correo. El botón manual **no se eliminó**: sigue siendo el
+camino para propietarios que no tenían correo registrado en el momento del alta, o cualquier
+otro caso que el automatismo no cubra.
+
+**Alcance de "automático": asegurar, no solo crear.** Se dispara al registrar *cualquier*
+paciente (propietario nuevo o ya existente), no solo cuando el propietario es nuevo — es una
+operación idempotente de mejor esfuerzo (`NuevoPacienteDialog.tsx`, tras el
+`crearPaciente(...)` exitoso, en su propio `try/catch`, nunca el que protege el guardado): si
+el propietario ya tiene `id_usuario_portal`, no hace nada; si no tiene correo registrado
+(RF-004 lo define opcional, no se volvió obligatorio), no puede crear la cuenta; en ningún caso
+el alta del paciente falla por esto. `PacientesPage.tsx` muestra un `Alert` informativo
+únicamente cuando hay algo que Recepción deba saber (sin correo, correo no enviado) — el caso
+feliz no interrumpe a nadie, coherente con el perfil de Recepcionista de la SRS 2.3
+("trabaja bajo presión de tiempo").
+
+**Contraseña temporal: aleatoria por cuenta, no un valor fijo.** Confirmado con el usuario
+antes de implementar — la alternativa (un único literal como `"VetCare#Temporal2026"`
+compartido por todas las cuentas nuevas) habría quedado documentada en este mismo archivo,
+visible para cualquiera con acceso al repo, y compartida entre propietarios hasta que cada uno
+la cambiara. Se genera con `crypto.getRandomValues` sobre un alfabeto sin caracteres ambiguos
+(`0/O`, `1/l/I`), para que una contraseña leída desde un correo no falle al transcribirla.
+
+**Edge Function `portal-acceso` — se extendió con un campo `accion`, mismo patrón que
+`admin-usuarios`**, en vez de crear una función nueva:
+- `'manual'` (default si se omite el campo — así `emitirAccesoPortal()` del cliente no
+  necesitó cambiar su firma): comportamiento idéntico al de la Fase 5, sin tocar nada.
+- `'automatico'`: sin correo/password del caller — lee `propietario.correo`, genera la
+  contraseña, y en vez de fallar cuando ya existe cuenta o falta correo, responde 200 con
+  `{ omitido: 'ya_existe' | 'sin_correo' }` (no son errores, el alta del paciente no debe
+  bloquearse por esto).
+- `'restablecer'` (nueva): genera una contraseña nueva para un propietario que **ya** tiene
+  cuenta y la reenvía por correo.
+
+**Por qué hizo falta agregar `'restablecer'`, y no era opcional.** Si el envío de correo falla
+en `'automatico'` (SMTP caído, etc.), la función **no revierte la cuenta ya creada** — revertir
+dejaría al propietario sin acceso pese a que la cuenta es perfectamente recuperable. Pero sin
+ningún mecanismo de recuperación, esa cuenta quedaría huérfana para siempre: nadie conoce la
+contraseña generada, y `admin-usuarios` (Módulo 6) no sirve para esto porque opera sobre
+`public.usuario` (personal), no sobre `propietario`/cuentas de portal — no hay fila en
+`usuario` que resetear. Se agregó la acción `'restablecer'` (mismo método que
+`restablecerContrasena` de `admin-usuarios`: `admin.auth.admin.updateUserById(id, { password
+})`) y un botón "Reenviar acceso" en `FichaDialog.tsx` (junto al Chip "Con acceso al portal",
+antes sin ninguna acción), abriendo `ReenviarAccesoPortalDialog.tsx` — diálogo sin campos, la
+contraseña nunca se escribe a mano ni se muestra en el cliente. Es también el mecanismo general
+para cualquier propietario que pierda o quiera renovar su acceso, no solo para el caso de
+correo fallido.
+
+**Envío de correo — nodemailer, no denomailer.** La librería SMTP nativa de Deno más citada
+para este caso (`denomailer`, usada en ejemplos de terceros) se probó primero y **crasheaba el
+worker completo** de `supabase-edge-runtime` 1.74 (Deno 2.1) al negociar STARTTLS contra
+`smtp.gmail.com:587`, con `"invalid cmd"` — un fallo a nivel de event loop que ni siquiera el
+`try/catch` de quien la llama podía atrapar (tumbaba toda la función, no solo el envío de
+correo; verificado en los logs de `supabase_edge_runtime`). El ejemplo oficial de Supabase para
+"enviar correo por SMTP desde una Edge Function" usa **nodemailer** vía `npm:nodemailer@^9`, no
+denomailer — cambiar a esa librería resolvió el problema. `supabase/functions/portal-acceso/smtp.ts`
+distingue TLS implícito (puerto 465, `secure: true`) de STARTTLS (cualquier otro puerto,
+`requireTLS` según `VETCARE_SMTP_TLS`) — Gmail en el puerto 587 (el configurado) es STARTTLS,
+no TLS implícito.
+
+**Secretos: prefijo `VETCARE_`, nunca commiteados.** `VETCARE_SMTP_HOST/PORT/USUARIO/PASSWORD/TLS/REMITENTE`
+viven en `supabase/functions/.env` (real, con la contraseña de aplicación de Gmail del
+cliente), que `supabase start` carga automáticamente en el edge runtime local sin flags
+extra — comportamiento nativo del CLI. Antes de crear ese archivo se cerró un hueco real en
+`supabase/.gitignore`: cubría `.env.local`/`.env.*.local`/`.env.keys` (patrón `dotenvx`) pero
+**no** un `.env` a secas, así que se agregó `functions/.env` explícitamente (verificado con
+`git check-ignore -v` antes de escribir el archivo real). Lo único que se commitea es
+`supabase/functions/.env.example`, con los nombres de variable y sin valores reales. Para un
+proyecto Supabase alojado (todavía no vinculado, sigue como pendiente más abajo), el comando
+queda documentado pero sin ejecutar: `supabase secrets set --env-file supabase/functions/.env`.
+
+**Fuera de alcance a propósito, igual que otras ampliaciones de este proyecto:** el flujo
+`'manual'` no se tocó ni se le agregó envío de correo (nadie lo pidió); no existe pantalla de
+"cambiar contraseña obligatorio en el primer ingreso" al portal (ya era una nota de seguimiento
+pendiente desde la Fase 5, sigue igual); el campo `correo` de propietario sigue opcional
+(RF-004) — si falta, simplemente no hay alta automática de portal para ese propietario, no se
+amplió ningún requisito para forzarlo.
+
+**Verificado** por `curl` con JWT real de `recepcion@vetcare.local` sobre el entorno local: `accion:
+'automatico'` sobre un propietario sin correo → `{omitido:'sin_correo'}`; sobre uno con correo
+real → cuenta creada, correo recibido sin errores en los logs del edge runtime; repetir la
+misma llamada → `{omitido:'ya_existe'}`, sin duplicar nada; `accion: 'restablecer'` sobre un
+propietario sin portal aún → error claro pidiendo usar "Dar acceso al portal" primero; sobre uno
+con portal → nueva contraseña generada y reenviada; `veterinario@vetcare.local` invocando
+cualquier acción → `403` (autorización sin cambios); `accion: 'manual'` (el flujo original de
+la Fase 5, sin el campo `accion`) sigue funcionando exactamente igual. En navegador con
+`recepcion@vetcare.local`, de punta a punta: registrar un paciente para un propietario nuevo
+con correo real crea la cuenta de portal sola, sin ningún aviso (caso feliz, no interrumpe);
+registrar uno sin correo muestra el `Alert` informativo correcto; desde la ficha de un
+propietario con acceso, "Reenviar acceso" confirma el reenvío. `npm run build` limpio. Datos de
+prueba creados durante la verificación (propietarios/pacientes/cuentas auxiliares) se
+revirtieron después, dejando el seed local (`supabase/seed.sql`) intacto.
