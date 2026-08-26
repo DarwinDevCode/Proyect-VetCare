@@ -1,0 +1,67 @@
+<svg viewBox="0 0 1600 700" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="uc_arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#334155" stroke-width="1.3"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1600" height="700" fill="#ffffff"/>
+  <rect x="60" y="15" width="1500" height="590" fill="none" stroke="#1e293b" stroke-width="1.2"/>
+  <text x="810.0" y="33" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">Módulo 8 – Portal del propietario</text>
+  <g stroke="#1e293b" stroke-width="1.4" fill="none">
+      <circle cx="50" cy="257" r="9" fill="#ffffff"/>
+      <line x1="50" y1="266" x2="50" y2="295"/>
+      <line x1="37" y1="275" x2="63" y2="275"/>
+      <line x1="50" y1="295" x2="38" y2="319"/>
+      <line x1="50" y1="295" x2="62" y2="319"/>
+    </g>
+  <text x="50" y="351" text-anchor="middle" font-size="11" fill="#0f172a">Propietario</text>
+  <ellipse cx="220" cy="100" rx="130.0" ry="30.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="220" y="97.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Iniciar sesión</text>
+  <text x="220" y="110.4" text-anchor="middle" font-size="10.5" fill="#0f172a">en el portal</text>
+  <ellipse cx="550" cy="100" rx="130.0" ry="30.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="550" y="97.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar mascotas</text>
+  <text x="550" y="110.4" text-anchor="middle" font-size="10.5" fill="#0f172a">registradas</text>
+  <ellipse cx="880" cy="100" rx="130.0" ry="30.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="880" y="103.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar citas propias</text>
+  <ellipse cx="1210" cy="100" rx="130.0" ry="30.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="1210" y="103.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar facturas propias</text>
+  <ellipse cx="320" cy="250" rx="125.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="320" y="247.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Recuperar contraseña</text>
+  <text x="320" y="260.4" text-anchor="middle" font-size="10.5" fill="#0f172a">olvidada</text>
+  <ellipse cx="650" cy="250" rx="140.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="650" y="247.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Consultar ficha de mascota</text>
+  <text x="650" y="260.4" text-anchor="middle" font-size="10.5" fill="#0f172a">(vacunas y tratamientos)</text>
+  <ellipse cx="980" cy="250" rx="125.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="980" y="253.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Cancelar cita propia</text>
+  <ellipse cx="1310" cy="250" rx="135.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="1310" y="247.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Imprimir comprobante</text>
+  <text x="1310" y="260.4" text-anchor="middle" font-size="10.5" fill="#0f172a">de factura</text>
+  <ellipse cx="880" cy="420" rx="120.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="880" y="423.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Solicitar cita</text>
+  <ellipse cx="320" cy="420" rx="130.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+  <text x="320" y="423.9" text-anchor="middle" font-size="10.5" fill="#0f172a">Cambiar contraseña</text>
+  <path d="M320,210.0 L220,130.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="232.0" y="161.0" width="76" height="14" fill="#ffffff"/>
+  <text x="270.0" y="172.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Extend&gt;&gt;</text>
+  <path d="M650,210.0 L550,130.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="562.0" y="161.0" width="76" height="14" fill="#ffffff"/>
+  <text x="600.0" y="172.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <path d="M980,210.0 L880,130.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="892.0" y="161.0" width="76" height="14" fill="#ffffff"/>
+  <text x="930.0" y="172.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <path d="M1310,210.0 L1210,130.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="1222.0" y="161.0" width="76" height="14" fill="#ffffff"/>
+  <text x="1260.0" y="172.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <polyline points="50,335 140,335 140,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 460,335 460,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 800,335 800,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 1120,335 1120,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 320,335 320,290.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 650,335 650,290.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 980,335 980,290.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 1310,335 1310,290.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 880,335 880,380.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <polyline points="50,335 320,335 320,380.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <text x="80" y="580" text-anchor="start" font-size="9" fill="#94a3b8">Nota: el propietario nunca ve diagnóstico ni hallazgos clínicos en "Consultar ficha de mascota" —</text>
+  <text x="80" y="593" text-anchor="start" font-size="9" fill="#94a3b8">la vista v_tratamientos_portal ni siquiera selecciona esas columnas (RN-006 se sostiene también aquí).</text>
+  </svg>
