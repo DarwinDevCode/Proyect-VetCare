@@ -59,23 +59,20 @@
   <ellipse cx="1150" cy="600" rx="160.0" ry="40.0" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
   <text x="1150" y="597.4" text-anchor="middle" font-size="10.5" fill="#0f172a">Sugerir cupos de lista</text>
   <text x="1150" y="610.4" text-anchor="middle" font-size="10.5" fill="#0f172a">de espera liberados</text>
-  <path d="M750,560.0 L600,470.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
-  <rect x="637.0" y="506.0" width="76" height="14" fill="#ffffff"/>
-  <text x="675.0" y="517.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
-  <path d="M1150,560.0 Q700,380 250,135.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
-  <rect x="662" y="371" width="76" height="14" fill="#ffffff"/>
-  <text x="700" y="382" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Extend&gt;&gt;</text>
-  <polyline points="50,385 200,385 200,135.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 500,385 500,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 850,385 850,135.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 1050,385 1050,300.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 1250,385 1250,300.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 1450,385 1450,300.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 200,385 200,405.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 600,385 600,410.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="50,385 750,385 750,560.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="1700,392 500,392 500,130.0" fill="none" stroke="#1e293b" stroke-width="1"/>
-  <polyline points="1700,392 600,392 600,410.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M750,560.0 L750,515.0 L600,515.0 L600,470.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="637.0" y="508.0" width="76" height="14" fill="#ffffff"/>
+  <text x="675.0" y="519.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Include&gt;&gt;</text>
+  <path d="M1150,560.0 L1150,340.0 L200,340.0 L200,135.0" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#uc_arrow)"/>
+  <rect x="637.0" y="333.0" width="76" height="14" fill="#ffffff"/>
+  <text x="675.0" y="344.0" text-anchor="middle" font-size="9.5" fill="#0f172a">&lt;&lt;Extend&gt;&gt;</text>
+  <path d="M50.0,355.0 L200.0,355.0 L200.0,135.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M50.0,366.0 L480.0,366.0 L480.0,131.4" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M50.0,377.0 L850.0,377.0 L850.0,135.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M50.0,388.0 L580.0,388.0 L580.0,411.5" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M50.0,399.0 L200.0,399.0 L200.0,405.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M50.0,520.0 L750.0,520.0 L750.0,560.0" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M1700.0,386.5 L520.0,386.5 L520.0,131.4" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <path d="M1700.0,397.5 L620.0,397.5 L620.0,411.5" fill="none" stroke="#1e293b" stroke-width="1"/>
   <text x="80" y="730" text-anchor="start" font-size="9" fill="#94a3b8">Nota: "Verificar disponibilidad de horario" y "Sugerir cupos de lista de espera liberados" no tienen</text>
   <text x="80" y="743" text-anchor="start" font-size="9" fill="#94a3b8">asociación directa con ningún actor — solo ocurren como parte obligatoria (&lt;&lt;Include&gt;&gt;) u opcional</text>
   <text x="80" y="756" text-anchor="start" font-size="9" fill="#94a3b8">(&lt;&lt;Extend&gt;&gt;) de otro caso de uso, igual que ya se documentaba para "Verificar disponibilidad" en el</text>
