@@ -5,10 +5,15 @@ import type { CitaConDetalle } from '../../types/dominio';
 import { BloqueCita } from './BloqueCita';
 import { HORA_FIN_ATENCION, HORA_INICIO_ATENCION } from './disponibilidad';
 
-const ALTO_SLOT_PX = 40;
+const ALTO_SLOT_PX = 56;
 const MINUTOS_POR_SLOT = 60;
-const ANCHO_GUTTER_PX = 56;
-const ALTO_ENCABEZADO_PX = 44;
+const ANCHO_GUTTER_PX = 64;
+const ALTO_ENCABEZADO_PX = 52;
+// Piso de ancho por columna antes de que el contenedor empiece a scrollear
+// horizontalmente (overflow: auto mas abajo) -- las columnas crecen con
+// flex:1 para aprovechar todo el ancho disponible en pantallas anchas, pero
+// sin este piso 7 columnas se aplastarian demasiado en una pantalla angosta.
+const ANCHO_MINIMO_DIA_PX = 130;
 
 const DIAS_SEMANA = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 
@@ -61,14 +66,19 @@ export function AgendaSemanal({ inicioSemana, citas, onClickSlotVacio, onClickCi
     <Box
       sx={{
         overflow: 'auto',
-        maxHeight: 'calc(100vh - 280px)',
-        minHeight: 360,
+        maxHeight: 'calc(100vh - 220px)',
+        minHeight: 480,
         border: 1,
         borderColor: 'divider',
         borderRadius: 2,
       }}
     >
-      <Box sx={{ display: 'flex', width: 'fit-content', minWidth: '100%' }}>
+      {/* width:100% + minWidth:'fit-content' -- las 7 columnas (flex:1 mas
+          abajo) se reparten todo el ancho disponible en pantallas anchas;
+          minWidth (del contenedor y de cada columna) es el piso que hace que
+          esta fila crezca mas alla del 100% y dispare el overflow:auto de
+          arriba si el ancho real no alcanza para las 7 sin aplastarlas. */}
+      <Box sx={{ display: 'flex', width: '100%', minWidth: 'fit-content' }}>
         <Box
           sx={{
             position: 'sticky',
@@ -100,7 +110,7 @@ export function AgendaSemanal({ inicioSemana, citas, onClickSlotVacio, onClickCi
           const clave = dia.format('YYYY-MM-DD');
           const esHoy = clave === hoy;
           return (
-            <Box key={clave} sx={{ width: 150, flexShrink: 0, borderRight: 1, borderColor: 'divider' }}>
+            <Box key={clave} sx={{ flex: 1, minWidth: ANCHO_MINIMO_DIA_PX, borderRight: 1, borderColor: 'divider' }}>
               <Box
                 sx={{
                   height: ALTO_ENCABEZADO_PX,

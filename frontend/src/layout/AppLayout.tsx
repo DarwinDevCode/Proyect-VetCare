@@ -8,7 +8,6 @@ import {
   Divider,
   Drawer,
   IconButton,
-  InputAdornment,
   List,
   ListItemButton,
   ListItemIcon,
@@ -16,7 +15,6 @@ import {
   Menu,
   MenuItem,
   Popover,
-  TextField,
   Toolbar,
   Typography,
   Chip,
@@ -24,7 +22,6 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import PetsIcon from '@mui/icons-material/Pets';
 import LogoutIcon from '@mui/icons-material/Logout';
-import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import { useAuth } from '../auth/AuthContext';
@@ -47,7 +44,6 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [busqueda, setBusqueda] = useState('');
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [leidas, setLeidas] = useState<Set<string>>(new Set());
   const [panelNotificaciones, setPanelNotificaciones] = useState<HTMLElement | null>(null);
@@ -81,14 +77,6 @@ export function AppLayout() {
     setLeidas((actual) => new Set(actual).add(n.id));
     setPanelNotificaciones(null);
     navigate(n.ruta);
-  }
-
-  // Atajo de navegacion, no un buscador propio: reutiliza el buscador que ya
-  // existe en Pacientes (RF-007) en vez de duplicar logica de busqueda aqui.
-  function buscarDesdeTopbar() {
-    const texto = busqueda.trim();
-    if (!texto) return;
-    navigate(`/pacientes?q=${encodeURIComponent(texto)}`);
   }
 
   const contenidoDrawer = (
@@ -149,25 +137,6 @@ export function AppLayout() {
           >
             <MenuIcon />
           </IconButton>
-          <TextField
-            placeholder="Buscar mascota, dueño…"
-            size="small"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') buscarDesdeTopbar();
-            }}
-            sx={{ display: { xs: 'none', sm: 'block' }, width: 260 }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
           <Box sx={{ flexGrow: 1 }} />
           <IconButton
             onClick={(e) => setPanelNotificaciones(e.currentTarget)}
